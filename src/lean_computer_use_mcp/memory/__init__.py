@@ -9,6 +9,7 @@ from lean_computer_use_mcp.memory.model import (
     norm_name,
     slugify,
 )
+from lean_computer_use_mcp.memory.planner import fill_plan_values, placeholder_indices
 from lean_computer_use_mcp.memory.refine import (
     LlmRefiner,
     RefineSuggestions,
@@ -27,9 +28,11 @@ __all__ = [
     "TaskTemplate",
     "apply_suggestions",
     "compose_plan",
+    "fill_plan_values",
     "fingerprint",
     "norm_name",
     "parse_suggestions",
+    "placeholder_indices",
     "search",
     "slugify",
 ]

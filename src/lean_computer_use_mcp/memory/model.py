@@ -86,6 +86,7 @@ class Component:
             direction=self.direction,
             pages=self.pages,
             matched=bool(target),
+            value_placeholder=self.value_template is not None,
         )
 
     def to_dict(self) -> dict[str, Any]:

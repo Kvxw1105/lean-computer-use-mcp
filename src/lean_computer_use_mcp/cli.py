@@ -201,6 +201,13 @@ def main(argv: list[str] | None = None) -> int:
     recall.add_argument(
         "--metrics-path", default=None, help="Write JSONL metrics to this file"
     )
+    recall.add_argument(
+        "--value",
+        action="append",
+        default=None,
+        help="Fill a recalled value placeholder (repeat per placeholder; "
+        "otherwise you are prompted for each)",
+    )
 
     refine = subparsers.add_parser(
         "refine",
@@ -495,6 +502,27 @@ def _cmd_recall(args: argparse.Namespace) -> int:
     if args.dry_run or not args.run:
         print("Dry-run: nothing executed. Use --run to execute.")
         return 0
+    from lean_computer_use_mcp.memory.planner import fill_plan_values, placeholder_indices
+
+    indices = placeholder_indices(plan)
+    if indices:
+        if args.value:
+            values = list(args.value)
+        else:
+            values = []
+            for index in indices:
+                step = plan.steps[index - 1]
+                values.append(
+                    input(f"  Value for step {index} ({step.describe()}): ").strip()
+                )
+        try:
+            plan = fill_plan_values(plan, values)
+        except ValueError as exc:
+            print(f"Recall aborted: {exc}", file=sys.stderr)
+            return 1
+        print(f"Filled {len(indices)} value placeholder(s):")
+        for index, step in enumerate(plan.steps, start=1):
+            print(f"  {index}. {step.describe()}")
     settings = _settings_from_args(args)
     upstream = (
         FakeUpstreamClient()

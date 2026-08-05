@@ -54,6 +54,8 @@ lean-computer-use components --library memory/components.json add-alias \
 # 3. Recall: map an intent onto memory (template reuse or component chain)
 lean-computer-use recall --intent "reduce the subtitle font size" \
     --app JianYing --library memory/components.json --dry-run
+#    Execute with only the varying value asked: --run prompts for the value,
+#    or pass it directly: --run --yes --value 12
 
 # 4. Execute: replay feeds every step back into the library
 lean-computer-use replay --in skills/recorded/subtitle-font-size/recording.json \
@@ -78,6 +80,9 @@ to re-discover a learned unit:
 - **Composition**: when the intent confidently matches a template
   (score >= 1.5) the template is reused; otherwise the intent is projected
   onto the top components as a tentative chain for the user to confirm.
+- **Values**: a recalled template never types a concrete value from memory.
+  Parameterized steps carry a placeholder; `recall --run` asks only for the
+  varying values (`--value 12` skips the prompt) and fills them in.
 - **Honesty**: when the intent shares no tokens with memory, recall returns an
   empty plan instead of hallucinating - that is the moment to record or teach
   an alias.
@@ -138,6 +143,7 @@ engine.
   snapshot).
 - Done: LLM-assisted curation (aliases / merges / descriptions / template
   generalizations) via `refine`, with a human-reviewed apply step.
-- Next: retrieval-time alias suggestion on misses, per-step
-  precondition/effect alignment from facade deltas, and a `recall --run`
-  planner that only asks for the varying values.
+- Done: `recall --run` asks only for the varying values (prompt or
+  `--value`), then executes the rest of the learned plan.
+- Next: retrieval-time alias suggestion on misses and per-step
+  precondition/effect alignment from facade deltas.

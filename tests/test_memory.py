@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from pathlib import Path
 
 from lean_computer_use_mcp.memory.extract import (
@@ -189,6 +191,31 @@ def test_retrieve_app_filter_and_popularity():
     assert ranked_all[0][0].app == "ChatGPT"  # popularity breaks the tie
 
 
+MINIMIZE = "\u6700\u5c0f\u5316"  # ??? (exists in the fake fixture)
+
+
+def _chatgpt_recording() -> Recording:
+    """Recording whose click target exists in the fake upstream fixture."""
+    return Recording(
+        name="minimize-and-type",
+        app="ChatGPT",
+        description="Minimize the window and type a message",
+        started_at=1700000000.0,
+        steps=[
+            RecordedStep(action="focus", window_title="ChatGPT"),
+            RecordedStep(
+                action="click",
+                window_title="ChatGPT",
+                target=ElementRef(role="button", name=MINIMIZE),
+                x=2600,
+                y=60,
+                matched=True,
+            ),
+            RecordedStep(action="type_text", window_title="ChatGPT", value="hello"),
+        ],
+    )
+
+
 def test_compose_reuses_template_when_confident():
     library = MemoryLibrary()
     components, template = extract_components(_recording())
@@ -202,6 +229,73 @@ def test_compose_reuses_template_when_confident():
     assert plan.source == "subtitle-font-size"
     weak = compose_plan(library, "check the weather")
     assert weak.kind == "components" and weak.tentative is True
+
+
+def test_placeholder_steps_and_fill(tmp_path):
+    from lean_computer_use_mcp.memory.planner import fill_plan_values, placeholder_indices
+
+    path = tmp_path / "components.json"
+    memory = Memory(path)
+    memory.learn(_recording())
+    plan = memory.recall("reduce the subtitle font size", app="JianYing")
+    assert plan.kind == "template"
+    indices = placeholder_indices(plan)
+    assert indices == [4]  # the single parameterized type_text step
+    placeholder_step = plan.steps[3]
+    assert placeholder_step.value_placeholder is True
+    assert placeholder_step.value == ""
+    filled = fill_plan_values(plan, ["12"])
+    assert filled.steps[3].value == "12"
+    assert filled.steps[3].value_placeholder is False
+    assert filled.steps[3].describe() == "Type '12' into"
+    assert filled.steps[1].target.name == "Text"  # other steps untouched
+    # placeholder flag survives the JSON round-trip
+    import json as _json
+
+    reloaded = RecordedStep.from_dict(_json.loads(_json.dumps(placeholder_step.to_dict())))
+    assert reloaded.value_placeholder is True
+
+
+def test_fill_plan_values_requires_exact_count(tmp_path):
+    from lean_computer_use_mcp.memory.planner import fill_plan_values
+
+    path = tmp_path / "components.json"
+    memory = Memory(path)
+    memory.learn(_recording())
+    plan = memory.recall("reduce the subtitle font size", app="JianYing")
+    with pytest.raises(ValueError, match="placeholder"):
+        fill_plan_values(plan, [])
+    with pytest.raises(ValueError, match="placeholder"):
+        fill_plan_values(plan, ["1", "2"])
+
+
+def test_cli_recall_run_fills_values_and_executes(tmp_path, capsys):
+    from lean_computer_use_mcp.cli import main
+
+    path = tmp_path / "components.json"
+    memory = Memory(path)
+    memory.learn(_chatgpt_recording())
+    code = main(
+        [
+            "recall",
+            "--intent",
+            "minimize the window and type a message",
+            "--app",
+            "ChatGPT",
+            "--library",
+            str(path),
+            "--run",
+            "--yes",
+            "--value",
+            "12",
+            "--fake",
+        ]
+    )
+    out = capsys.readouterr().out
+    assert "Filled 1 value placeholder(s)" in out
+    assert "Type '12'" in out
+    assert "Completed 3/3 steps" in out
+    assert code == 0
 
 
 def test_memory_learn_and_feedback(tmp_path):

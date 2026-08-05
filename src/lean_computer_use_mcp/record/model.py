@@ -127,6 +127,7 @@ class RecordedStep:
     pages: float = 1.0
     matched: bool = False
     commit: bool = False
+    value_placeholder: bool = False  # value came from a template, not a recording
 
     @property
     def is_content(self) -> bool:
@@ -152,6 +153,8 @@ class RecordedStep:
         if self.direction is not None:
             result["direction"] = self.direction
             result["pages"] = self.pages
+        if self.value_placeholder:
+            result["value_placeholder"] = True
         return result
 
     @classmethod
@@ -169,6 +172,7 @@ class RecordedStep:
             pages=float(data.get("pages", 1.0)),
             matched=bool(data.get("matched", False)),
             commit=bool(data.get("commit", False)),
+            value_placeholder=bool(data.get("value_placeholder", False)),
         )
 
     def describe(self) -> str:
@@ -185,6 +189,8 @@ class RecordedStep:
         if self.action == "scroll":
             return f"Scroll {self.direction or ''}{where}".strip()
         if self.action == "type_text":
+            if self.value_placeholder:
+                return f"Type <value> into{where}"
             return f"Type {self.value!r} into{where}"
         if self.action == "press_key":
             return f"Press {self.key} on{where}"
