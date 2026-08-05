@@ -102,6 +102,22 @@ def test_auto_escalation_passes_intent_as_hint(tmp_path) -> None:
     assert upgrade.calls == ["找到导出按钮"]
 
 
+def test_auto_escalation_not_suppressed_by_boot_clock(tmp_path, monkeypatch) -> None:
+    """Regression: a freshly booted machine (time.monotonic() < cooldown) must
+    not suppress the first escalation as if it were within a cooldown."""
+    import lean_computer_use_mcp.server as server_module
+
+    monkeypatch.setattr(server_module.time, "monotonic", lambda: 5.0)
+    settings = _settings(
+        tmp_path, vision_upgrade_engine="fake_llm", vision_upgrade_cooldown_seconds=60
+    )
+    engine = LeanComputerUse(BlindAppUpstream(FIXTURES), settings)
+    result = engine.observe("JianyingPro", vision="auto")
+    vision = result["vision"]
+    assert vision["escalated"] is True
+    assert vision["reason"] == "auto_escalate"
+
+
 def test_no_upgrade_engine_configured_keeps_base(tmp_path) -> None:
     settings = _settings(tmp_path)
     engine = LeanComputerUse(BlindAppUpstream(FIXTURES), settings)

@@ -616,7 +616,7 @@ class LeanComputerUse:
             self._last_vision_upgrade_at
             + self.settings.vision_upgrade_cooldown_seconds
             - time.monotonic()
-        )
+        ) if self._last_vision_upgrade_at > 0 else -1.0
         if remaining > 0:
             return None, {
                 "attempted": False,

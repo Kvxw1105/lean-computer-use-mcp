@@ -112,6 +112,12 @@ def test_act_with_refresh_raises_on_failed_action(monkeypatch):
         client.act_with_refresh("ChatGPT", "set_value", {"app": "ChatGPT"}, 80, 8, 160)
 
 
+def test_missing_binary_raises_through_real_subprocess():
+    client = CliUpstreamClient(binary="definitely-not-a-real-binary-xyz")
+    with pytest.raises(UpstreamError, match="binary not found"):
+        client.list_apps()
+
+
 def test_extract_call_raises_on_iserror():
     item = {
         "result": {

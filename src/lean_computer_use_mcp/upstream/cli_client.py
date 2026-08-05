@@ -35,9 +35,7 @@ class CliUpstreamClient(UpstreamClient):
         self.timeout_seconds = timeout_seconds
 
     def _command(self, *extra: str) -> list[str]:
-        resolved = shutil.which(self.binary)
-        if resolved is None:
-            raise UpstreamError(f"upstream binary not found on PATH: {self.binary}")
+        resolved = shutil.which(self.binary) or self.binary
         cmd = [resolved, *extra]
         if resolved.lower().endswith((".cmd", ".bat")):
             cmd = ["cmd", "/c", *cmd]
@@ -80,6 +78,8 @@ class CliUpstreamClient(UpstreamClient):
         return payload
 
     def _subprocess(self, cmd: list[str], label: str) -> subprocess.CompletedProcess:
+        if shutil.which(self.binary) is None:
+            raise UpstreamError(f"upstream binary not found on PATH: {self.binary}")
         try:
             return subprocess.run(
                 cmd,
