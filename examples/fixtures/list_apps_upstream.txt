@@ -1,0 +1,3 @@
+ChatGPT -- ChatGPT [running, pid=15332, window=ChatGPT]
+Microsoft Edge -- Microsoft Edge [running, pid=24640, window=ChatGPT - Personal - Microsoft Edge]
+Notepad -- Notepad [not running, pid=0]

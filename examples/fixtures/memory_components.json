@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "components": [
+    {
+      "app": "JianYing",
+      "action": "focus",
+      "role": "",
+      "name": "",
+      "hits": 0,
+      "misses": 0,
+      "created_at": 1720000000.0,
+      "last_used_at": 0.0
+    },
+    {
+      "app": "JianYing",
+      "action": "click",
+      "role": "button",
+      "name": "Text",
+      "hits": 0,
+      "misses": 0,
+      "created_at": 1720000000.0,
+      "last_used_at": 0.0,
+      "frame": {
+        "x": 12,
+        "y": 48,
+        "width": 84,
+        "height": 30
+      },
+      "x": 54,
+      "y": 63,
+      "preconditions": [
+        "Text"
+      ]
+    },
+    {
+      "app": "JianYing",
+      "action": "click",
+      "role": "edit",
+      "name": "Font size",
+      "hits": 0,
+      "misses": 0,
+      "created_at": 1720000000.0,
+      "last_used_at": 0.0,
+      "frame": {
+        "x": 120,
+        "y": 52,
+        "width": 56,
+        "height": 26
+      },
+      "x": 148,
+      "y": 65,
+      "preconditions": [
+        "Font size"
+      ]
+    },
+    {
+      "app": "JianYing",
+      "action": "type_text",
+      "role": "",
+      "name": "",
+      "hits": 0,
+      "misses": 0,
+      "created_at": 1720000000.0,
+      "last_used_at": 0.0,
+      "value_template": "{value}"
+    },
+    {
+      "app": "JianYing",
+      "action": "press_key",
+      "role": "",
+      "name": "",
+      "hits": 0,
+      "misses": 0,
+      "created_at": 1720000000.0,
+      "last_used_at": 0.0,
+      "key": "Enter"
+    }
+  ],
+  "templates": [
+    {
+      "id": "subtitle-font-size",
+      "name": "subtitle-font-size",
+      "app": "JianYing",
+      "description": "Reduce the subtitle font size in the text panel of the video draft.",
+      "component_ids": [
+        "jianying::focus",
+        "jianying::click::button::text",
+        "jianying::click::edit::font-size",
+        "jianying::type_text",
+        "jianying::press_key"
+      ],
+      "hits": 0,
+      "created_at": 1720000000.0
+    }
+  ]
+}

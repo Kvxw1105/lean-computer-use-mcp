@@ -1,0 +1,22 @@
+App=ChatGPT (pid 15332)
+Window: "ChatGPT", App: ChatGPT.
+ 0 window ChatGPT Secondary Actions: ScrollIntoView Frame: {x: 0, y: 0, width: 2906, height: 1730}
+   1 pane  Frame: {x: 12, y: 12, width: 2882, height: 1706}
+   2 区域 ChatGPT Secondary Actions: ScrollIntoView Frame: {x: 13, y: 13, width: 2884, height: 1708}
+     3 区域  Secondary Actions: ScrollIntoView Frame: {x: 13, y: 13, width: 2884, height: 1708}
+       4 区域  Secondary Actions: ScrollIntoView Frame: {x: 13, y: 13, width: 2884, height: 1708}
+         5 区域  Secondary Actions: ScrollIntoView Frame: {x: 13, y: 13, width: 2884, height: 1708}
+           6 区域  Secondary Actions: ScrollIntoView Frame: {x: 13, y: 13, width: 2884, height: 1708}
+             7 区域  Secondary Actions: ScrollIntoView Frame: {x: 13, y: 13, width: 2884, height: 1708}
+               8 文档 Codex Value: app://-/index.html Secondary Actions: SetValue, Scroll, ScrollIntoView Frame: {x: 13, y: 13, width: 2884, height: 1708}
+                 9 组  Secondary Actions: Invoke, ScrollIntoView Frame: {x: 13, y: 13, width: 2884, height: 1708}
+   10 区域  Secondary Actions: ScrollIntoView Frame: {x: 2532, y: 13, width: 365, height: 96}
+     11 区域  Secondary Actions: ScrollIntoView Frame: {x: 2532, y: 13, width: 365, height: 96}
+       12 按钮 最小化 Secondary Actions: Invoke, ScrollIntoView Frame: {x: 2532, y: 13, width: 120, height: 96}
+       13 按钮 恢复 Secondary Actions: Invoke, ScrollIntoView Frame: {x: 2652, y: 13, width: 124, height: 96}
+       14 按钮 关闭 Secondary Actions: Invoke, ScrollIntoView Frame: {x: 2774, y: 13, width: 123, height: 96}
+       15 对话框 确认对话框 Secondary Actions: ScrollIntoView Frame: {x: 1000, y: 600, width: 600, height: 300}
+         16 按钮 确定 Secondary Actions: Invoke Frame: {x: 1300, y: 780, width: 120, height: 48}
+         17 按钮 取消 Secondary Actions: Invoke Frame: {x: 1450, y: 780, width: 120, height: 48}
+
+The focused UI element is 按钮 确定.

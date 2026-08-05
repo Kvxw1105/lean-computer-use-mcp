@@ -1,0 +1,5 @@
+[
+  {"name": "ChatGPT", "running": true, "visible_windows": 1},
+  {"name": "Microsoft Edge", "running": true, "visible_windows": 2},
+  {"name": "Notepad", "running": false, "visible_windows": 0}
+]

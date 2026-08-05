@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lean Computer Use for Luna"
+  short_description: "Low-context, confirmation-bound Windows UI control"
+  default_prompt: "Use $lean-computer-use-luna to inspect or operate Windows apps with minimal context and strict confirmation boundaries."

@@ -1,0 +1,17 @@
+# Example for ~/.codex/config.toml once the package is published.
+# Replace `lean-computer-use-mcp` with the published distribution name.
+#
+# [mcp_servers.lean-computer-use]
+# command = "uvx"
+# args = ["--from", "lean-computer-use-mcp", "lean-computer-use", "serve"]
+# env = {
+#   "LEAN_CU_UPSTREAM_BIN" = "open-computer-use",
+#   "LEAN_CU_STATE_TTL_SECONDS" = "30",
+#   "LEAN_CU_METRICS_PATH" = "C:/Users/<you>/.codex/logs/lean-cu-metrics.jsonl",
+#   # Vision fallback: local OCR (winrt_ocr | rapidocr), multimodal API (llm), or none.
+#   "LEAN_CU_VISION_ENGINE" = "winrt_ocr",
+#   # Only for LEAN_CU_VISION_ENGINE = "llm" (OpenAI-compatible endpoint).
+#   "LEAN_CU_VISION_API_BASE" = "https://<provider>/v1",
+#   "LEAN_CU_VISION_API_KEY" = "<secret>",
+#   "LEAN_CU_VISION_MODEL" = "<vision-model>",
+# }

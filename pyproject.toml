@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lean-computer-use-mcp"
+version = "0.1.0"
+description = "Low-context, state-safe MCP facade over Open Computer Use for inexpensive agent models."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Kaiwen Zhang" }]
+dependencies = [
+    "mcp>=1.2.0,<2.0",
+    "pydantic>=2.7",
+    "Pillow>=10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[project.scripts]
+lean-computer-use = "lean_computer_use_mcp.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lean_computer_use_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

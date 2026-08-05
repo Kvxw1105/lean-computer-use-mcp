@@ -1,0 +1,5 @@
+App=JianyingPro (pid 12345)
+Window: "JianyingPro", App: JianyingPro.
+ 0 window JianyingPro Secondary Actions: ScrollIntoView Frame: {x: 0, y: 0, width: 1920, height: 1080}
+
+The focused UI element is window JianyingPro.

@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+.coverage
+htmlcov/
+lean_cu_metrics.jsonl
+media_cache/
+.DS_Store
+Thumbs.db
+
+# Personal screenshots and local measurement artifacts
+jy_latest.jpg
+benchmarks/results/
+
+# User-owned memory/recordings/metrics live at the repo root only
+# (anchored so the src/.../memory and src/.../metrics packages are NOT ignored)
+/recordings/
+/memory/
+/metrics/

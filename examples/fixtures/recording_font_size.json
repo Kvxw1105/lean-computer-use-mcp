@@ -1,0 +1,263 @@
+{
+  "version": 1,
+  "name": "subtitle-font-size",
+  "app": "JianYing",
+  "description": "Reduce the subtitle font size in the text panel of the video draft.",
+  "started_at": 1720000000.0,
+  "snapshots": [
+    {
+      "ts": 1720000001.0,
+      "window_title": "JianYing",
+      "window_pid": 4242,
+      "elements": [
+        {
+          "index": "1",
+          "role": "button",
+          "name": "Text",
+          "depth": 0,
+          "actions": [],
+          "frame": {
+            "x": 12,
+            "y": 48,
+            "width": 84,
+            "height": 30
+          }
+        },
+        {
+          "index": "2",
+          "role": "button",
+          "name": "Audio",
+          "depth": 0,
+          "actions": [],
+          "frame": {
+            "x": 12,
+            "y": 84,
+            "width": 84,
+            "height": 30
+          }
+        },
+        {
+          "index": "3",
+          "role": "button",
+          "name": "Stickers",
+          "depth": 0,
+          "actions": [],
+          "frame": {
+            "x": 12,
+            "y": 120,
+            "width": 84,
+            "height": 30
+          }
+        },
+        {
+          "index": "4",
+          "role": "edit",
+          "name": "Font size",
+          "depth": 0,
+          "actions": [],
+          "frame": {
+            "x": 120,
+            "y": 52,
+            "width": 56,
+            "height": 26
+          }
+        },
+        {
+          "index": "5",
+          "role": "pane",
+          "name": "Subtitle preview",
+          "depth": 0,
+          "actions": [],
+          "frame": {
+            "x": 260,
+            "y": 40,
+            "width": 604,
+            "height": 132
+          }
+        },
+        {
+          "index": "6",
+          "role": "button",
+          "name": "Export",
+          "depth": 0,
+          "actions": [],
+          "frame": {
+            "x": 2600,
+            "y": 40,
+            "width": 120,
+            "height": 40
+          }
+        }
+      ],
+      "text_chars": 1800,
+      "image_bytes": 0,
+      "window_rect": [
+        0,
+        0,
+        2910,
+        1700
+      ]
+    },
+    {
+      "ts": 1720000006.0,
+      "window_title": "JianYing",
+      "window_pid": 4242,
+      "elements": [
+        {
+          "index": "1",
+          "role": "button",
+          "name": "Text",
+          "depth": 0,
+          "actions": [],
+          "frame": {
+            "x": 12,
+            "y": 48,
+            "width": 84,
+            "height": 30
+          }
+        },
+        {
+          "index": "2",
+          "role": "button",
+          "name": "Audio",
+          "depth": 0,
+          "actions": [],
+          "frame": {
+            "x": 12,
+            "y": 84,
+            "width": 84,
+            "height": 30
+          }
+        },
+        {
+          "index": "3",
+          "role": "button",
+          "name": "Stickers",
+          "depth": 0,
+          "actions": [],
+          "frame": {
+            "x": 12,
+            "y": 120,
+            "width": 84,
+            "height": 30
+          }
+        },
+        {
+          "index": "4",
+          "role": "edit",
+          "name": "Font size",
+          "depth": 0,
+          "actions": [],
+          "frame": {
+            "x": 120,
+            "y": 52,
+            "width": 56,
+            "height": 26
+          }
+        },
+        {
+          "index": "5",
+          "role": "pane",
+          "name": "Subtitle preview",
+          "depth": 0,
+          "actions": [],
+          "frame": {
+            "x": 260,
+            "y": 40,
+            "width": 597,
+            "height": 106
+          }
+        },
+        {
+          "index": "6",
+          "role": "button",
+          "name": "Export",
+          "depth": 0,
+          "actions": [],
+          "frame": {
+            "x": 2600,
+            "y": 40,
+            "width": 120,
+            "height": 40
+          }
+        }
+      ],
+      "text_chars": 1800,
+      "image_bytes": 0,
+      "window_rect": [
+        0,
+        0,
+        2910,
+        1700
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "action": "focus",
+      "window_title": "JianYing",
+      "matched": false,
+      "commit": false
+    },
+    {
+      "action": "click",
+      "window_title": "JianYing",
+      "matched": true,
+      "commit": false,
+      "target": {
+        "role": "button",
+        "name": "Text",
+        "frame": {
+          "x": 12,
+          "y": 48,
+          "width": 84,
+          "height": 30
+        }
+      },
+      "x": 54,
+      "y": 63
+    },
+    {
+      "action": "click",
+      "window_title": "JianYing",
+      "matched": true,
+      "commit": false,
+      "target": {
+        "role": "edit",
+        "name": "Font size",
+        "frame": {
+          "x": 120,
+          "y": 52,
+          "width": 56,
+          "height": 26
+        }
+      },
+      "x": 148,
+      "y": 65
+    },
+    {
+      "action": "type_text",
+      "window_title": "JianYing",
+      "matched": false,
+      "commit": false,
+      "value": "12"
+    },
+    {
+      "action": "press_key",
+      "window_title": "JianYing",
+      "matched": false,
+      "commit": true,
+      "key": "Enter"
+    }
+  ],
+  "metrics": {
+    "events": 11,
+    "steps": 5,
+    "snapshots": 2,
+    "snapshot_errors": 0,
+    "text_chars": 620,
+    "image_bytes": 0,
+    "nodes": 12,
+    "duration_ms": 8500
+  }
+}
