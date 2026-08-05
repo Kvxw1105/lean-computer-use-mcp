@@ -34,8 +34,13 @@ def test_non_current_state_is_stale():
     assert exc.value.current_state_id == second.state_id
 
 
-def test_expired_state_is_stale():
-    store = StateStore(ttl_seconds=0)
+def test_expired_state_is_stale(monkeypatch):
+    import lean_computer_use_mcp.state.store as store_module
+
+    fake_clock = {"now": 1000.0}
+    monkeypatch.setattr(store_module.time, "time", lambda: fake_clock["now"])
+    store = StateStore(ttl_seconds=10)
     snapshot = store.put(_snapshot())
+    fake_clock["now"] += 11
     with pytest.raises(StaleStateError):
         store.get("Notepad", snapshot.state_id)
