@@ -115,7 +115,10 @@ if ctypes.sizeof(ctypes.c_void_p) == 8:
 else:
     _LRESULT = ctypes.c_long
 
-_WNDPROC = ctypes.WINFUNCTYPE(_LRESULT, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
+if _IS_WINDOWS:
+    _WNDPROC = ctypes.WINFUNCTYPE(_LRESULT, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
+else:
+    _WNDPROC = ctypes.CFUNCTYPE(_LRESULT, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
 
 
 def _def_window_proc(
