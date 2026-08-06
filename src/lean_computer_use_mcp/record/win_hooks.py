@@ -65,6 +65,54 @@ class _KBDLLHOOKSTRUCT(ctypes.Structure):
 _HOOKPROC = ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_int, wt.WPARAM, wt.LPARAM)
 
 
+def _win32_signatures() -> None:
+    """Pin 64-bit-safe signatures for every user32/kernel32 call.
+
+    Without explicit restypes, ctypes defaults to ``c_int`` (32-bit), which
+    truncates 64-bit handles like ``SetWindowsHookExW`` results - the hooks
+    would silently never install. Called once from :class:`WinInputHook`.
+    """
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+    kernel32.GetCurrentThreadId.restype = wt.DWORD
+    kernel32.GetModuleHandleW.restype = wt.HINSTANCE
+    kernel32.GetModuleHandleW.argtypes = [wt.LPCWSTR]
+    user32.SetWindowsHookExW.restype = ctypes.c_void_p
+    user32.SetWindowsHookExW.argtypes = [
+        ctypes.c_int,
+        _HOOKPROC,
+        wt.HINSTANCE,
+        wt.DWORD,
+    ]
+    user32.UnhookWindowsHookEx.restype = wt.BOOL
+    user32.UnhookWindowsHookEx.argtypes = [ctypes.c_void_p]
+    user32.CallNextHookEx.restype = ctypes.c_ssize_t
+    user32.CallNextHookEx.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_int,
+        wt.WPARAM,
+        wt.LPARAM,
+    ]
+    user32.RegisterHotKey.restype = wt.BOOL
+    user32.RegisterHotKey.argtypes = [wt.HWND, ctypes.c_int, wt.UINT, wt.UINT]
+    user32.UnregisterHotKey.restype = wt.BOOL
+    user32.UnregisterHotKey.argtypes = [wt.HWND, ctypes.c_int]
+    user32.GetMessageW.restype = wt.BOOL
+    user32.GetMessageW.argtypes = [
+        ctypes.POINTER(wt.MSG),
+        wt.HWND,
+        wt.UINT,
+        wt.UINT,
+    ]
+    user32.PostThreadMessageW.restype = wt.BOOL
+    user32.PostThreadMessageW.argtypes = [
+        wt.DWORD,
+        wt.UINT,
+        wt.WPARAM,
+        wt.LPARAM,
+    ]
+
+
 @dataclass(frozen=True)
 class ForegroundInfo:
     window_title: str
@@ -138,6 +186,7 @@ class WinInputHook:
     def _loop(self) -> None:
         if not _IS_WINDOWS:
             return
+        _win32_signatures()
         user32 = ctypes.windll.user32
         kernel32 = ctypes.windll.kernel32
         self._thread_id = kernel32.GetCurrentThreadId()

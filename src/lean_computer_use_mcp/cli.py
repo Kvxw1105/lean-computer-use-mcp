@@ -317,6 +317,10 @@ def _cmd_record(args: argparse.Namespace) -> int:
         from lean_computer_use_mcp.record.recorder import NoopForeground, NoopHook
 
         hook, foreground = NoopHook(), NoopForeground()
+    else:
+        from lean_computer_use_mcp.record.win_hooks import WinForeground
+
+        foreground = WinForeground()
     recorder = Recorder(
         upstream=upstream,
         app=args.app,
