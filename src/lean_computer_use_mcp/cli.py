@@ -91,6 +91,11 @@ def main(argv: list[str] | None = None) -> int:
     record.add_argument(
         "--metrics-path", default=None, help="Write JSONL metrics to this file"
     )
+    record.add_argument(
+        "--no-overlay",
+        action="store_true",
+        help="Disable the screen-edge recording glow indicator",
+    )
 
     compile_ = subparsers.add_parser(
         "compile", help="Compile a recording into an editable SKILL.md"
@@ -299,7 +304,14 @@ def _cmd_record(args: argparse.Namespace) -> int:
         metrics=MetricsLogger(settings.metrics_path) if settings.metrics_path else None,
         description=args.description,
     )
+    from lean_computer_use_mcp.record.overlay import make_overlay
+
+    overlay = make_overlay(enabled=not args.fake and not args.no_overlay)
     recorder.start()
+    try:
+        overlay.show()
+    except Exception as exc:  # noqa: BLE001 - indicator must never block recording
+        print(f"Warning: recording glow unavailable ({exc}); continuing without it.")
     print(f"Recording {args.app!r}. Demonstrate the workflow now.")
     print(f"Stop with Ctrl+Shift+R or wait {args.seconds or 'indefinitely'} seconds.")
     try:
@@ -314,6 +326,7 @@ def _cmd_record(args: argparse.Namespace) -> int:
         pass
     finally:
         recording = recorder.stop()
+        overlay.hide()
     recording.save(out_path)
     print(
         f"Recorded {len(recording.steps)} steps ({recording.metrics.duration_ms} ms) -> {out_path}"

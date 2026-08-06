@@ -45,6 +45,11 @@ lean-computer-use replay --in recordings/font-size.json --run
 - A low-level `WH_MOUSE_LL` / `WH_KEYBOARD_LL` hook captures mouse clicks,
   wheel deltas and key events with timestamps and the foreground window
   title/rect (`record/win_hooks.py`, Windows-only).
+- A screen-edge glow (blue-purple, click-through, always-on-top) is shown
+  while a live session records, so you always know the demonstration is being
+  captured (`record/overlay.py`, Windows-only). It is a plain layered popup
+  window: it never consumes input and never shows up in recordings (they are
+  text-only). Disable it with `--no-overlay` or by using `--fake`.
 - A sampler thread reads the app's UIA tree every few seconds
   (`record/recorder.py`); only parsed controls plus character/byte counts are
   stored - raw trees and screenshots are never persisted.
