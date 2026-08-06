@@ -103,6 +103,20 @@ def test_click_matched_and_unmatched():
     assert second.x == 700 and second.y == 600
 
 
+def test_click_uncertain_flag():
+    table = _table()
+    steps = build_steps(
+        [
+            _click(101.0, 100 + 50, 200 + 35),  # matched
+            _click(102.0, 100 + 700, 200 + 600),  # empty area
+        ],
+        [table],
+    )
+    assert steps[0].uncertain is False
+    assert steps[1].uncertain is True
+    assert steps[1].matched is False
+
+
 def test_click_commit_flag_from_name():
     table = _table()
     steps = build_steps([_click(101.0, 100 + 320, 200 + 420)], [table])

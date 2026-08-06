@@ -44,6 +44,11 @@ def main(argv: list[str] | None = None) -> int:
     serve.add_argument(
         "--state-ttl-seconds", type=int, default=None, help="State freshness TTL"
     )
+    serve.add_argument(
+        "--act-overlay",
+        action="store_true",
+        help="Show a screen-edge glow while cu_act/cu_batch executes an action",
+    )
 
     doctor = subparsers.add_parser("doctor", help="Check upstream prerequisites")
     doctor.add_argument(
@@ -124,6 +129,11 @@ def main(argv: list[str] | None = None) -> int:
         "--library",
         default=None,
         help="Procedural memory file; learned components are added here",
+    )
+    compile_.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip the library-store confirmation after the evidence report",
     )
 
     replay = subparsers.add_parser(
@@ -279,6 +289,18 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def confirm_store() -> bool:
+    """Ask the user to confirm a library store; never auto-answers."""
+    reply = input("Store this recording in the library? [y/N] ").strip().lower()
+    return reply in {"y", "yes"}
+
+
+def _print_live_steps(steps) -> None:
+    """Live recorder stream: print each step as it is recognized."""
+    for step in steps:
+        print(f"[live] {step.describe()}", flush=True)
+
+
 def _cmd_record(args: argparse.Namespace) -> int:
     settings = _settings_from_args(args)
     upstream = (
@@ -303,6 +325,7 @@ def _cmd_record(args: argparse.Namespace) -> int:
         foreground=foreground,
         metrics=MetricsLogger(settings.metrics_path) if settings.metrics_path else None,
         description=args.description,
+        on_steps=_print_live_steps,
     )
     from lean_computer_use_mcp.record.overlay import make_overlay
 
@@ -358,13 +381,20 @@ def _cmd_compile(args: argparse.Namespace) -> int:
     print(f"Recording copy -> {recording_path}")
     if args.library:
         from lean_computer_use_mcp.memory.library import Memory
+        from lean_computer_use_mcp.record.compile import evidence_badges
 
-        memory = Memory(args.library)
-        learned = memory.learn(recording)
-        print(
-            f"Memory: {learned['components_added']} new components, "
-            f"{learned['templates']} templates -> {args.library}"
-        )
+        print("Evidence per step (library store):")
+        for index, step in enumerate(recording.steps, start=1):
+            print(f"{index:>3}. {step.describe()}  {evidence_badges(step)}")
+        if args.yes or confirm_store():
+            memory = Memory(args.library)
+            learned = memory.learn(recording)
+            print(
+                f"Memory: {learned['components_added']} new components, "
+                f"{learned['templates']} templates -> {args.library}"
+            )
+        else:
+            print("Skipped storing to library (declined).")
     print(f"Next: lean-computer-use replay --in {recording_path} --run")
     return 0
 
@@ -583,6 +613,8 @@ def _settings_from_args(args: argparse.Namespace) -> Settings:
         overrides["metrics_path"] = args.metrics_path
     if getattr(args, "state_ttl_seconds", None):
         overrides["state_ttl_seconds"] = args.state_ttl_seconds
+    if getattr(args, "act_overlay", False):
+        overrides["act_overlay_enabled"] = True
     if not overrides:
         return settings
     return Settings(**{**settings.__dict__, **overrides})

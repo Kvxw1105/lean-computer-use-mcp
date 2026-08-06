@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from lean_computer_use_mcp.config import Settings
 from lean_computer_use_mcp.server import LeanComputerUse
 from lean_computer_use_mcp.upstream.fake_client import FakeUpstreamClient
 
@@ -57,6 +58,74 @@ def test_batch_is_capped_at_three(fake_upstream, settings):
     ]
     result = engine.batch("ChatGPT", observed["state_id"], steps, max_actions=10)
     assert result["completed"] <= 3
+
+
+class FakeOverlay:
+    """Recording overlay double for lifecycle assertions."""
+
+    def __init__(self):
+        self.shows = 0
+        self.hides = 0
+        self.visible = False
+
+    def show(self):
+        self.shows += 1
+        self.visible = True
+
+    def hide(self):
+        self.hides += 1
+        self.visible = False
+
+
+def test_act_toggles_overlay_around_action(fake_upstream, settings):
+    overlay = FakeOverlay()
+    engine = LeanComputerUse(fake_upstream, settings, overlay=overlay)
+    observed = engine.observe("ChatGPT")
+    result = engine.act(
+        "ChatGPT",
+        observed["state_id"],
+        "set_value",
+        element_index="12",
+        value="hello",
+    )
+    assert result["ok"] is True
+    assert overlay.shows == 1
+    assert overlay.hides == 1
+    assert overlay.visible is False  # never left glowing after an action
+
+
+def test_stale_state_never_toggles_overlay(fake_upstream, settings):
+    overlay = FakeOverlay()
+    engine = LeanComputerUse(fake_upstream, settings, overlay=overlay)
+    result = engine.act("ChatGPT", "bogus-state", "click", element_index="12")
+    assert result["ok"] is False
+    assert overlay.shows == 0
+    assert overlay.hides == 0
+
+
+def test_batch_toggles_overlay_per_action(fake_upstream, settings):
+    overlay = FakeOverlay()
+    engine = LeanComputerUse(fake_upstream, settings, overlay=overlay)
+    observed = engine.observe("ChatGPT")
+    result = engine.batch(
+        "ChatGPT",
+        observed["state_id"],
+        [{"action": "set_value", "element_index": "12", "value": "hello"}],
+    )
+    assert result["ok"] is True
+    assert overlay.shows == 1
+    assert overlay.hides == 1
+
+
+def test_act_overlay_env_flag(monkeypatch):
+    monkeypatch.setenv("LEAN_CU_ACT_OVERLAY", "1")
+    assert Settings.from_env().act_overlay_enabled is True
+    monkeypatch.setenv("LEAN_CU_ACT_OVERLAY", "true")
+    assert Settings.from_env().act_overlay_enabled is True
+    monkeypatch.setenv("LEAN_CU_ACT_OVERLAY", "0")
+    assert Settings.from_env().act_overlay_enabled is False
+    monkeypatch.delenv("LEAN_CU_ACT_OVERLAY")
+    assert Settings.from_env().act_overlay_enabled is False
 
 
 def test_metrics_are_recorded(fake_upstream, settings):

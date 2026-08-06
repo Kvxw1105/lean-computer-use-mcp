@@ -16,6 +16,7 @@ from lean_computer_use_mcp.metrics.logger import MetricsLogger
 from lean_computer_use_mcp.models import StateSnapshot
 from lean_computer_use_mcp.parse.topk import filter_controls
 from lean_computer_use_mcp.parse.tree_parser import detect_truncation, parse_state
+from lean_computer_use_mcp.record.overlay import Overlay, make_overlay
 from lean_computer_use_mcp.state.fingerprint import fingerprint
 from lean_computer_use_mcp.state.store import StateStore
 from lean_computer_use_mcp.upstream.base import UpstreamClient
@@ -47,10 +48,20 @@ _VALID_OUTPUT_MODES = {"controls", "reading", "visual", "full"}
 
 class LeanComputerUse:
     def __init__(
-        self, upstream: UpstreamClient, settings: Settings | None = None
+        self,
+        upstream: UpstreamClient,
+        settings: Settings | None = None,
+        overlay: Overlay | None = None,
     ) -> None:
         self.settings = settings or Settings.from_env()
         self.upstream = upstream
+        # Execution indicator: glows while an action executes and is always
+        # hidden around snapshots so it never pollutes observed state.
+        self._overlay = (
+            overlay
+            if overlay is not None
+            else make_overlay(enabled=self.settings.act_overlay_enabled)
+        )
         self.store = StateStore(
             self.settings.state_ttl_seconds, self.settings.state_max_entries
         )
@@ -238,14 +249,21 @@ class LeanComputerUse:
                 to_x=to_x,
                 to_y=to_y,
             )
-            if action == "click" and click_method == "real":
-                raw, image = self._real_click(
-                    app, x, y, mouse_button, nodes, depth, text
-                )
-            else:
-                raw, image, _ = self.upstream.act_with_refresh(
-                    app, action, args, nodes, depth, text
-                )
+            # Execution indicator: lit only around the action itself. The gate
+            # snapshot above and the after snapshot below are taken with the
+            # overlay hidden, so agent-visible state stays unpolluted.
+            self._overlay.show()
+            try:
+                if action == "click" and click_method == "real":
+                    raw, image = self._real_click(
+                        app, x, y, mouse_button, nodes, depth, text
+                    )
+                else:
+                    raw, image, _ = self.upstream.act_with_refresh(
+                        app, action, args, nodes, depth, text
+                    )
+            finally:
+                self._overlay.hide()
             after = self._build_snapshot(app, raw, image, budget=(nodes, depth, text))
             self.store.put(after)
             delta = diff(gate, after)

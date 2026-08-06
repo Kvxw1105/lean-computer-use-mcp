@@ -19,7 +19,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from lean_computer_use_mcp.errors import RealInputUnavailableError
 from lean_computer_use_mcp.record.model import InputEvent
@@ -106,10 +106,12 @@ class WinInputHook:
         stop_vk: int = _VK_R,
         stop_event: threading.Event | None = None,
         foreground: WinForeground | None = None,
+        on_event: Callable[[InputEvent], None] | None = None,
     ) -> None:
         self.stop_vk = stop_vk
         self.stop_event = stop_event or threading.Event()
         self.foreground = foreground or WinForeground()
+        self.on_event: Callable[[InputEvent], None] | None = on_event
         self.events: list[InputEvent] = []
         self._thread: threading.Thread | None = None
         self._hooks: list[int] = []
@@ -176,23 +178,29 @@ class WinInputHook:
             **extra,
         )
 
+    def _record(self, event: InputEvent) -> None:
+        """Append an event and notify the recorder (live steps, snapshots)."""
+        self.events.append(event)
+        if self.on_event is not None:
+            self.on_event(event)
+
     def _on_mouse(self, code: int, wparam: int, lparam: int) -> int:
         if code >= 0 and lparam:
             data = ctypes.cast(lparam, ctypes.POINTER(_MSLLHOOKSTRUCT)).contents
             if wparam == _MOUSE_LBUTTONDOWN:
-                self.events.append(
+                self._record(
                     self._capture(
                         "mouse_down", x=int(data.pt.x), y=int(data.pt.y), button="left"
                     )
                 )
             elif wparam == _MOUSE_RBUTTONDOWN:
-                self.events.append(
+                self._record(
                     self._capture(
                         "mouse_down", x=int(data.pt.x), y=int(data.pt.y), button="right"
                     )
                 )
             elif wparam == _MOUSE_MBUTTONDOWN:
-                self.events.append(
+                self._record(
                     self._capture(
                         "mouse_down",
                         x=int(data.pt.x),
@@ -202,7 +210,7 @@ class WinInputHook:
                 )
             elif wparam == _MOUSE_WHEEL:
                 delta = ctypes.c_short((data.mouseData >> 16) & 0xFFFF).value
-                self.events.append(
+                self._record(
                     self._capture(
                         "wheel",
                         x=int(data.pt.x),
@@ -219,9 +227,9 @@ class WinInputHook:
             if self._is_stop_combo(vk):
                 return self._call_next(code, wparam, lparam)
             if wparam == 0x0100:  # WM_KEYDOWN
-                self.events.append(self._capture("key_down", vk=vk))
+                self._record(self._capture("key_down", vk=vk))
             elif wparam == 0x0101:  # WM_KEYUP
-                self.events.append(self._capture("key_up", vk=vk))
+                self._record(self._capture("key_up", vk=vk))
         return self._call_next(code, wparam, lparam)
 
     def _is_stop_combo(self, vk: int) -> bool:

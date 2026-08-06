@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from lean_computer_use_mcp.models import ControlNode, Frame
-from lean_computer_use_mcp.record.compile import compile_skill, write_skill
+from lean_computer_use_mcp.record.compile import (
+    compile_skill,
+    evidence_badges,
+    write_skill,
+)
 from lean_computer_use_mcp.record.model import (
     ElementRef,
     ElementTable,
@@ -98,6 +102,39 @@ def test_compile_skill_sections_and_metrics():
     # Metrics assertion: the skill text itself is the model-visible payload.
     assert len(md) > 200
     assert recording.metrics.image_bytes == 0
+
+
+def test_evidence_badges_combinations():
+    step = RecordedStep(
+        action="click",
+        window_title="JianYing",
+        target=ElementRef(role="button", name="Text"),
+        x=10,
+        y=20,
+    )
+    assert evidence_badges(step) == "[element] [coords] [window]"
+    coords_only = RecordedStep(
+        action="click", window_title="JianYing", x=10, y=20, uncertain=True
+    )
+    assert evidence_badges(coords_only) == "[coords] [window] [uncertain]"
+    focus = RecordedStep(action="focus", window_title="JianYing")
+    assert evidence_badges(focus) == "[window]"
+
+
+def test_compile_marks_uncertain_steps():
+    recording = _recording()
+    recording.steps.append(
+        RecordedStep(
+            action="click",
+            window_title="JianYing",
+            x=50,
+            y=60,
+            matched=False,
+            uncertain=True,
+        )
+    )
+    md = compile_skill(recording)
+    assert "(uncertain:" in md
 
 
 def test_compile_skill_inputs_from_varying_values():

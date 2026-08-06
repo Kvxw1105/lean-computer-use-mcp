@@ -128,6 +128,7 @@ class RecordedStep:
     matched: bool = False
     commit: bool = False
     value_placeholder: bool = False  # value came from a template, not a recording
+    uncertain: bool = False  # recorded without a semantic element match
 
     @property
     def is_content(self) -> bool:
@@ -155,6 +156,8 @@ class RecordedStep:
             result["pages"] = self.pages
         if self.value_placeholder:
             result["value_placeholder"] = True
+        if self.uncertain:
+            result["uncertain"] = True
         return result
 
     @classmethod
@@ -173,6 +176,7 @@ class RecordedStep:
             matched=bool(data.get("matched", False)),
             commit=bool(data.get("commit", False)),
             value_placeholder=bool(data.get("value_placeholder", False)),
+            uncertain=bool(data.get("uncertain", False)),
         )
 
     def describe(self) -> str:

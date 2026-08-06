@@ -14,6 +14,24 @@ from pathlib import Path
 from lean_computer_use_mcp.record.model import CONTENT_ACTIONS, Recording, RecordedStep
 
 
+def evidence_badges(step: RecordedStep) -> str:
+    """Per-step evidence marks: [element] / [coords] / [window] / [uncertain].
+
+    Shown by ``compile --library`` before the store confirmation so the user
+    can judge how solid each step's recorded target is.
+    """
+    badges: list[str] = []
+    if step.target is not None:
+        badges.append("[element]")
+    if step.x is not None:
+        badges.append("[coords]")
+    if step.window_title:
+        badges.append("[window]")
+    if step.uncertain:
+        badges.append("[uncertain]")
+    return " ".join(badges)
+
+
 def _step_lines(step: RecordedStep) -> list[str]:
     lines = [step.describe()]
     if step.action == "click" and not step.matched and step.x is not None:
@@ -23,6 +41,11 @@ def _step_lines(step: RecordedStep) -> list[str]:
         )
     if step.action in CONTENT_ACTIONS and step.commit:
         lines.append("  (commit-like step: confirm with the user before replay)")
+    if step.uncertain:
+        lines.append(
+            "  (uncertain: no semantic element was matched while recording; "
+            "verify this step during replay)"
+        )
     return lines
 
 

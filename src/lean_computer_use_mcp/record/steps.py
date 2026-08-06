@@ -262,6 +262,7 @@ def build_steps(
                     y=oy,
                     matched=matched,
                     commit=bool(target and is_commit_name(target.name)),
+                    uncertain=not matched,
                 )
             )
             continue

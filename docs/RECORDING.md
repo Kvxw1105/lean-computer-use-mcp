@@ -50,6 +50,16 @@ lean-computer-use replay --in recordings/font-size.json --run
   captured (`record/overlay.py`, Windows-only). It is a plain layered popup
   window: it never consumes input and never shows up in recordings (they are
   text-only). Disable it with `--no-overlay` or by using `--fake`.
+- Live feedback: every recognized step is printed with a `[live]` prefix as
+  soon as the event stream supports it, so a fast demonstration is never
+  silently missed. Typing steps flush after a short pause (the same rule the
+  final artifact uses).
+- Action-triggered snapshots: mouse clicks and wheel actions wake the sampler
+  immediately (throttled to ~0.4 s), so a click always lands near a fresh
+  element table instead of waiting for the next scheduled snapshot.
+- `uncertain` flag: a click recorded without any matching accessibility
+  element is marked `uncertain` in `recording.json`, shown in the compile
+  evidence report and annotated in the compiled `SKILL.md`.
 - A sampler thread reads the app's UIA tree every few seconds
   (`record/recorder.py`); only parsed controls plus character/byte counts are
   stored - raw trees and screenshots are never persisted.
@@ -64,6 +74,32 @@ lean-computer-use replay --in recordings/font-size.json --run
 Limitations (v1): Latin keyboard layout only; IME-composed text (e.g. Chinese
 input) is not captured - add it to the generated `SKILL.md` or `recording.json`
 by hand; drag steps are not recorded; cross-app workflows replay per-app.
+
+## Library store confirmation
+
+`compile --library <file>` prints one evidence line per step before storing
+anything:
+
+```text
+  2. Click 'Text' (button)  [element] [coords] [window]
+```
+
+Badges are `[element]` (semantic target matched), `[coords]` (recorded
+coordinate fallback), `[window]` (window context) and `[uncertain]` (no
+semantic element at record time). The CLI then asks `Store this recording in
+the library? [y/N]` and only learns components/templates after an explicit
+`y` (use `--yes` to skip the prompt for scripting). Declining leaves the
+library untouched.
+
+## Execution indicator (agent acting)
+
+`serve` can glow while `cu_act`/`cu_batch` executes an action so you can see
+when an agent is controlling the desktop. It is **off by default**; enable it
+with `serve --act-overlay` or `LEAN_CU_ACT_OVERLAY=1`. The overlay is hidden
+around every upstream snapshot (state reads and post-action refreshes), so
+agent-visible trees, screenshots and state fingerprints stay unpolluted; only
+the in-flight refresh image byte count may include the glow, and those bytes
+are never stored or shown.
 
 ## Replay semantics
 

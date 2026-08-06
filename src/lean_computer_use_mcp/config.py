@@ -19,6 +19,7 @@ class Settings:
     vision_upgrade_engine: str = "none"
     vision_upgrade_min_elements: int = 3
     vision_upgrade_cooldown_seconds: float = 60.0
+    act_overlay_enabled: bool = False
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -36,4 +37,6 @@ class Settings:
             vision_upgrade_engine=os.getenv("LEAN_CU_VISION_UPGRADE_ENGINE", "none"),
             vision_upgrade_min_elements=int(os.getenv("LEAN_CU_VISION_UPGRADE_MIN_ELEMENTS", "3")),
             vision_upgrade_cooldown_seconds=float(os.getenv("LEAN_CU_VISION_UPGRADE_COOLDOWN_SECONDS", "60")),
+            act_overlay_enabled=os.getenv("LEAN_CU_ACT_OVERLAY", "0").lower()
+            in {"1", "true", "yes", "on"},
         )
