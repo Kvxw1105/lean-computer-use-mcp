@@ -47,9 +47,13 @@ lean-computer-use replay --in recordings/font-size.json --run
   title/rect (`record/win_hooks.py`, Windows-only).
 - A screen-edge glow (blue-purple, click-through, always-on-top) is shown
   while a live session records, so you always know the demonstration is being
-  captured (`record/overlay.py`, Windows-only). It is a plain layered popup
-  window: it never consumes input and never shows up in recordings (they are
-  text-only). Disable it with `--no-overlay` or by using `--fake`.
+  captured (`record/overlay.py`, Windows-only). The glow is animated: a soft
+  wave (default 2.5 waves, ~0.5 Hz, +/-15% alpha) travels continuously around
+  the four edges so the active state reads as alive without being noisy. The
+  animation renders at half resolution (~4x fewer bytes per frame, 24 fps,
+  vectorized Pillow compositing) and the layered window stretches it, so the
+  cost stays small. It never consumes input and never shows up in recordings
+  (they are text-only). Disable it with `--no-overlay` or by using `--fake`.
 - Live feedback: every recognized step is printed with a `[live]` prefix as
   soon as the event stream supports it, so a fast demonstration is never
   silently missed. Typing steps flush after a short pause (the same rule the
@@ -94,8 +98,10 @@ library untouched.
 ## Execution indicator (agent acting)
 
 `serve` can glow while `cu_act`/`cu_batch` executes an action so you can see
-when an agent is controlling the desktop. It is **off by default**; enable it
-with `serve --act-overlay` or `LEAN_CU_ACT_OVERLAY=1`. The overlay is hidden
+when an agent is controlling the desktop; `replay --run --act-overlay` and
+`recall --run --act-overlay` show the same animated glow while steps execute.
+It is **off by default**; enable it with `--act-overlay` or
+`LEAN_CU_ACT_OVERLAY=1`. The overlay is hidden
 around every upstream snapshot (state reads and post-action refreshes), so
 agent-visible trees, screenshots and state fingerprints stay unpolluted; only
 the in-flight refresh image byte count may include the glow, and those bytes

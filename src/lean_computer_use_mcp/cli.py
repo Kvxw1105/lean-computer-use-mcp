@@ -187,6 +187,11 @@ def main(argv: list[str] | None = None) -> int:
         "--metrics-path", default=None, help="Write JSONL metrics to this file"
     )
     replay.add_argument(
+        "--act-overlay",
+        action="store_true",
+        help="Show an animated screen-edge glow while steps execute",
+    )
+    replay.add_argument(
         "--library",
         default=None,
         help="Procedural memory file; replay results feed back into it",
@@ -248,6 +253,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     recall.add_argument(
         "--metrics-path", default=None, help="Write JSONL metrics to this file"
+    )
+    recall.add_argument(
+        "--act-overlay",
+        action="store_true",
+        help="Show an animated screen-edge glow while the plan executes",
     )
     recall.add_argument(
         "--value",

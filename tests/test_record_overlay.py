@@ -11,6 +11,8 @@ from lean_computer_use_mcp.errors import RealInputUnavailableError
 from lean_computer_use_mcp.record.overlay import (
     NoopOverlay,
     WinGlowOverlay,
+    _edge_mask,
+    _wave_factor,
     make_overlay,
     premultiply_alpha,
     render_glow,
@@ -37,6 +39,81 @@ def test_render_glow_fades_inward():
     assert outer == 255
     assert 0 < mid < outer
     assert 0 <= inner_px < mid
+
+
+def test_wave_factor_range_and_static_default():
+    for position in (0.0, 0.25, 0.5, 1.0):
+        factor = _wave_factor(position, phase=1.0, waves=2.5, amplitude=0.5)
+        assert 1.0 - 0.5 <= factor <= 1.0
+    assert _wave_factor(0.3, phase=0.0, waves=2.5, amplitude=0.0) == 1.0
+
+
+def test_wave_factor_is_periodic_in_phase():
+    import math
+
+    a = _wave_factor(0.25, phase=0.0, waves=2.5, amplitude=0.3)
+    b = _wave_factor(0.25, phase=1.0, waves=2.5, amplitude=0.3)
+    assert abs(a - b) < 1e-9
+
+
+def test_render_glow_animated_frames_differ_and_stay_soft():
+    frame_a = render_glow(320, 200, amplitude=0.5, phase=0.0)
+    frame_b = render_glow(320, 200, amplitude=0.5, phase=3.14159)
+    assert frame_a.tobytes() != frame_b.tobytes()
+    # Alpha modulation stays in [0.5*255, 255] along an edge for amp=0.5.
+    alphas = [frame_a.getpixel((x, 0))[3] for x in range(0, 320, 8)]
+    assert min(alphas) >= int(255 * 0.5)
+    assert max(alphas) <= 255
+    # The centre stays fully transparent while animating.
+    assert frame_a.getpixel((160, 100))[3] == 0
+
+
+def test_render_glow_edges_form_one_continuous_flow():
+    frame = render_glow(320, 200, band=8, amplitude=0.5, phase=0.0)
+    left = frame.getpixel((0, 0))[3]
+    middle = frame.getpixel((160, 0))[3]
+    # waves=2.5 puts x=0 on a wave trough and x=160 on a peak, so alpha must
+    # differ along one edge - proof the wave travels, not just pulses.
+    assert left != middle
+
+
+def test_edge_mask_profile_times_factor():
+    from PIL import Image
+
+    profile = Image.new("L", (1, 4))
+    for i in range(4):
+        profile.putpixel((0, i), 200)
+    mask = _edge_mask(profile, 64, 4, phase=0.0, waves=2.5, amplitude=0.5, direction=0)
+    assert mask.size == (64, 4)
+    assert max(mask.getdata()) <= 200
+    assert min(mask.getdata()) >= int(200 * 0.5) - 1
+
+
+def test_edge_mask_vertical_edge_keeps_profile_across_width():
+    from PIL import Image
+
+    profile = Image.new("L", (1, 4))
+    for i, value in enumerate((200, 150, 100, 50)):
+        profile.putpixel((0, i), value)
+    mask = _edge_mask(profile, 64, 4, phase=0.0, waves=2.5, amplitude=0.0, direction=2)
+    # Left edge: alpha fades with x (inward), constant along y at a fixed x.
+    assert mask.size == (4, 64)
+    assert mask.getpixel((0, 10)) == 200
+    assert mask.getpixel((0, 40)) == 200
+    assert mask.getpixel((3, 10)) == 50
+
+
+def test_edge_mask_right_edge_mirrors_profile():
+    from PIL import Image
+
+    profile = Image.new("L", (1, 4))
+    for i, value in enumerate((200, 150, 100, 50)):
+        profile.putpixel((0, i), value)
+    mask = _edge_mask(profile, 64, 4, phase=0.0, waves=2.5, amplitude=0.0, direction=3)
+    # Right edge region starts inward: x=0 is the innermost pixel (profile
+    # tail), x=3 touches the screen edge (profile head).
+    assert mask.getpixel((0, 10)) == 50
+    assert mask.getpixel((3, 10)) == 200
 
 
 def test_render_glow_small_screen_clamps_band():

@@ -17,9 +17,11 @@ from __future__ import annotations
 
 import ctypes
 import ctypes.wintypes as wt
+import math
 import os
 import sys
 import threading
+import time
 from typing import Protocol
 
 from PIL import Image, ImageChops, ImageOps
@@ -134,12 +136,22 @@ def render_glow(
     inner: int = 5,
     color_left: tuple[int, int, int] = (76, 111, 247),
     color_right: tuple[int, int, int] = (166, 88, 248),
+    phase: float = 0.0,
+    waves: float = 2.5,
+    amplitude: float = 0.0,
 ) -> Image.Image:
     """Build an RGBA glow frame: transparent center, blue-purple screen edges.
 
     ``band`` is the glow thickness in pixels; ``inner`` is the fully opaque
     part at the very edge. The rest fades quadratically to zero so the glow
     looks soft instead of boxy. Colors blend left -> right across the screen.
+
+    ``phase``/``waves``/``amplitude`` add a soft travelling wave along the
+    edges: alpha is scaled by ``1 - amplitude*0.5*(1 - sin(2*pi*(waves*p -
+    phase)))`` with ``p`` running around the screen perimeter so the four
+    edges form one continuous flow. ``phase`` is measured in turns (0..1 for
+    one full cycle). ``amplitude=0`` (default) keeps the frame static and
+    exactly matches the original glow.
     """
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     if width <= 0 or height <= 0:
@@ -163,12 +175,10 @@ def render_glow(
         else:
             t = (i - inner) / max(1, band - inner)
             alpha.putpixel((0, i), int(255 * (1.0 - t) ** 2))
-    top_mask = alpha.resize((width, band), Image.Resampling.BILINEAR)
-    bottom_mask = ImageOps.flip(top_mask)
-    left_mask = alpha.rotate(90, expand=True).resize(
-        (band, height), Image.Resampling.BILINEAR
-    )
-    right_mask = ImageOps.mirror(left_mask)
+    top_mask = _edge_mask(alpha, width, band, phase, waves, amplitude, 0)
+    bottom_mask = _edge_mask(alpha, width, band, phase, waves, amplitude, 1)
+    left_mask = _edge_mask(alpha, height, band, phase, waves, amplitude, 2)
+    right_mask = _edge_mask(alpha, height, band, phase, waves, amplitude, 3)
 
     mask = Image.new("L", (width, height), 0)
     for region, origin in (
@@ -182,6 +192,69 @@ def render_glow(
         mask = ImageChops.lighter(mask, layer)
     r, g, b = color_full.split()
     return Image.merge("RGBA", (r, g, b, mask))
+
+
+def _wave_factor(position: float, phase: float, waves: float, amplitude: float) -> float:
+    """Soft travelling-wave alpha factor in ``[1-amplitude, 1]``.
+
+    ``phase`` is in turns (0..1); the wave is 2*pi periodic in it.
+    """
+    if amplitude <= 0.0:
+        return 1.0
+    wave = math.sin(2.0 * math.pi * (waves * position - phase))
+    return 1.0 - amplitude * 0.5 * (1.0 - wave)
+
+
+def _edge_mask(
+    profile: Image.Image,
+    length: int,
+    band: int,
+    phase: float,
+    waves: float,
+    amplitude: float,
+    direction: int,
+) -> Image.Image:
+    """Build a (length x band) alpha mask with a wave along the edge.
+
+    ``direction`` orders the wave so the four edges form one continuous flow
+    around the screen: 0 = top L->R, 1 = bottom R->L, 2 = left B->T,
+    3 = right T->B. The per-column factor is built with ``putdata`` and the
+    band profile with a vectorized multiply, so a 24 fps animation stays
+    cheap (no per-pixel Python loop over the band).
+    """
+    factors = [0] * length
+    for x in range(length):
+        position = x / max(1, length - 1)
+        if direction in (1, 2):
+            position = 1.0 - position
+        factors[x] = int(255 * _wave_factor(position, phase, waves, amplitude))
+    factor_img = Image.new("L", (length, 1))
+    factor_img.putdata(factors)
+    if direction in (2, 3):
+        # Vertical edges: mask(x, y) = profile(x) * factor(y), shape (band,
+        # length). The left edge starts at the screen edge (profile index 0);
+        # the right edge is mirrored because its region begins inward.
+        profile_img = profile.rotate(90, expand=True).resize(
+            (band, length), Image.Resampling.BILINEAR
+        )
+        factor_img = factor_img.resize(
+            (band, length), Image.Resampling.BILINEAR
+        )
+        if direction == 3:
+            profile_img = ImageOps.mirror(profile_img)
+    else:
+        # Horizontal edges: mask(x, y) = profile(y) * factor(x), (length,
+        # band). The top edge starts at the screen edge; the bottom edge is
+        # flipped because its region begins inward.
+        profile_img = profile.resize(
+            (length, band), Image.Resampling.BILINEAR
+        )
+        factor_img = factor_img.resize(
+            (length, band), Image.Resampling.BILINEAR
+        )
+        if direction == 1:
+            profile_img = ImageOps.flip(profile_img)
+    return ImageChops.multiply(profile_img, factor_img)
 
 
 def premultiply_alpha(img: Image.Image) -> Image.Image:
@@ -248,11 +321,23 @@ class WinGlowOverlay:
         inner: int = 5,
         color_left: tuple[int, int, int] = (76, 111, 247),
         color_right: tuple[int, int, int] = (166, 88, 248),
+        animate: bool = True,
+        fps: float = 24.0,
+        cycle_seconds: float = 2.0,
+        waves: float = 2.5,
+        amplitude: float = 0.3,
+        scale: float = 0.5,
     ) -> None:
         self._band = band
         self._inner = inner
         self._color_left = color_left
         self._color_right = color_right
+        self._animate_on = animate
+        self._fps = fps
+        self._cycle_seconds = cycle_seconds
+        self._waves = waves
+        self._amplitude = amplitude
+        self._scale = scale
         self._hwnd: int | None = None
         self._thread: threading.Thread | None = None
         self._thread_id = 0
@@ -260,6 +345,9 @@ class WinGlowOverlay:
         self._wndproc: _WNDPROC | None = None
         self._pending: tuple[int, int, bytes] | None = None
         self._origin = (0, 0)
+        self._width = 0
+        self._height = 0
+        self._seq = 0  # unique window-class name per show(), so re-show works
 
     def show(self) -> None:
         if not _IS_WINDOWS:
@@ -287,7 +375,7 @@ class WinGlowOverlay:
             color_right=self._color_right,
         )
         self._pending = (width, height, to_bgra_bytes(premultiply_alpha(glow)))
-        _user32().PostThreadMessageW(self._thread_id, _WM_UPDATE, 0, 0)
+        _user32().PostThreadMessageW(self._thread_id, _WM_UPDATE, 1, 0)
 
     def hide(self) -> None:
         thread = self._thread
@@ -303,7 +391,8 @@ class WinGlowOverlay:
         gdi32 = _gdi32()
         self._make_dpi_aware()
         instance = ctypes.windll.kernel32.GetModuleHandleW(None)
-        class_name = f"LeanCuGlowOverlay{os.getpid()}"
+        class_name = f"LeanCuGlowOverlay{os.getpid()}_{self._seq}"
+        self._seq += 1
         self._wndproc = _WNDPROC(_def_window_proc)
         wc = _WNDCLASSW()
         wc.style = 0
@@ -318,6 +407,8 @@ class WinGlowOverlay:
             return
         x, y, width, height = self._virtual_screen_rect()
         self._origin = (x, y)
+        self._width = width
+        self._height = height
         hwnd = user32.CreateWindowExW(
             _WS_EX_LAYERED
             | _WS_EX_TRANSPARENT
@@ -357,7 +448,7 @@ class WinGlowOverlay:
             if result <= 0:
                 break
             if msg.message == _WM_UPDATE:
-                self._apply_update(hwnd, gdi32, user32)
+                self._animate(hwnd, gdi32, user32)
             elif msg.message == _WM_HIDE:
                 user32.DestroyWindow(hwnd)
                 user32.PostQuitMessage(0)
@@ -366,11 +457,78 @@ class WinGlowOverlay:
                 user32.DispatchMessageW(ctypes.byref(msg))
         self._hwnd = None
 
-    def _apply_update(self, hwnd: int, gdi32: ctypes.WinDLL, user32: ctypes.WinDLL) -> None:
-        pending = self._pending
-        if pending is None:
+    def _animate(
+        self, hwnd: int, gdi32: ctypes.WinDLL, user32: ctypes.WinDLL
+    ) -> None:
+        """Apply the first frame, then run the low-cost wave animation.
+
+        Runs on the window-owner thread; the loop sleeps toward the next
+        frame and polls for hide/quit messages with ``PeekMessageW``, so
+        ``hide()`` still interrupts immediately. Animation frames are
+        rendered at ``scale`` resolution (default 0.5x) - the layered
+        window stretches them for free, cutting the per-frame DIB bytes by
+        4x while the soft glow stays visually identical.
+        """
+        if self._pending is not None:
+            self._apply_update(hwnd, gdi32, user32, *self._pending)
+            self._pending = None
+        if not self._animate_on or self._width <= 0 or self._height <= 0:
             return
-        width, height, data = pending
+        width = max(1, int(self._width * self._scale))
+        height = max(1, int(self._height * self._scale))
+        band = max(2, int(self._band * self._scale))
+        inner = max(1, min(int(self._inner * self._scale), band - 1))
+        frame_time = 1.0 / max(1.0, self._fps)
+        phase_step = frame_time / max(0.5, self._cycle_seconds)  # turns per frame
+        phase = 0.0
+        msg = wt.MSG()
+        while True:
+            glow = render_glow(
+                width,
+                height,
+                band=band,
+                inner=inner,
+                color_left=self._color_left,
+                color_right=self._color_right,
+                phase=phase,
+                waves=self._waves,
+                amplitude=self._amplitude,
+            )
+            self._apply_update(
+                hwnd,
+                gdi32,
+                user32,
+                width,
+                height,
+                to_bgra_bytes(premultiply_alpha(glow)),
+            )
+            phase = (phase + phase_step) % 1.0
+            deadline = time.monotonic() + frame_time
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                if user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 1):
+                    if msg.message == _WM_HIDE:
+                        user32.DestroyWindow(hwnd)
+                        user32.PostQuitMessage(0)
+                        return
+                    if msg.message == _WM_QUIT:
+                        return
+                    user32.TranslateMessage(ctypes.byref(msg))
+                    user32.DispatchMessageW(ctypes.byref(msg))
+                    continue
+                time.sleep(min(0.005, remaining))
+
+    def _apply_update(
+        self,
+        hwnd: int,
+        gdi32: ctypes.WinDLL,
+        user32: ctypes.WinDLL,
+        width: int,
+        height: int,
+        data: bytes,
+    ) -> None:
         hdc_screen = user32.GetDC(None)
         if not hdc_screen:
             return
@@ -490,6 +648,14 @@ def _user32() -> ctypes.WinDLL:
         user32.GetMessageW.argtypes = [
             ctypes.POINTER(wt.MSG),
             wt.HWND,
+            wt.UINT,
+            wt.UINT,
+        ]
+        user32.PeekMessageW.restype = wt.BOOL
+        user32.PeekMessageW.argtypes = [
+            ctypes.POINTER(wt.MSG),
+            wt.HWND,
+            wt.UINT,
             wt.UINT,
             wt.UINT,
         ]
