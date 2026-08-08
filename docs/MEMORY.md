@@ -84,8 +84,59 @@ to re-discover a learned unit:
   Parameterized steps carry a placeholder; `recall --run` asks only for the
   varying values (`--value 12` skips the prompt) and fills them in.
 - **Honesty**: when the intent shares no tokens with memory, recall returns an
-  empty plan instead of hallucinating - that is the moment to record or teach
-  an alias.
+  empty plan instead of hallucinating - that is the moment to record, teach an
+  alias, or use `recall --llm`.
+
+## LLM semantic naming (compile --llm)
+
+UIA-thin apps (custom-rendered editors such as JianYing) resolve every click
+to the window node, so deterministic extraction degenerates to one anonymous
+`app::click::::` blob. `compile --llm` asks the model to name coordinate-only
+steps before the skill and the library are built:
+
+```sh
+lean-computer-use compile --in recordings/subtitle-font-size.json \
+    --out-dir skills/recorded/subtitle-font-size \
+    --library memory/components.json --llm --yes
+# uses LEAN_CU_VISION_API_BASE / _KEY / _MODEL; or pass --api-base/--api-key/--model
+```
+
+- A compact digest (app, step sequence, first-snapshot element names) is sent;
+  no screenshots, window titles, or raw trees.
+- The model returns one role/name/description per step; only allowlisted
+  roles, in-range indices, and non-empty names are accepted.
+- Steps whose target is the window itself (role window/pane/title_bar or a
+  name equal to the app/window title) are treated as coordinate-only and are
+  replaced when the model names them; existing semantic targets are never
+  overwritten.
+- Without an endpoint, on network failure, or on invalid output the
+  deterministic path is used unchanged - the recording is never blocked.
+
+Measured on the 12-step JianYing subtitle workflow: naming rose from 2/12 to
+11/12 steps, and the library went from 4 anonymous components to 7 semantic
+ones (`preview canvas`, `media asset`, `timeline track`, `inspector tab`,
+`property value`, `close`), each with a one-line description.
+
+## LLM intent-to-component mapping (recall --llm)
+
+The deterministic scorer matches tokens, but real intents rarely share tokens
+with learned names ("?????" vs "preview canvas"). `recall --llm` sends
+the intent plus a compact component digest (id | action | role | name |
+description) to the model and gets back an ordered, validated component plan:
+
+```sh
+lean-computer-use recall --intent "?????" --app JianyingPro \
+    --library memory/components.json --llm --dry-run
+```
+
+- Returned ids must exist in the library; duplicates and unknown ids are
+  dropped, order is preserved, and the plan is capped at 12 steps.
+- The plan is tentative (`score=2.0`) and printed for confirmation before
+  `--run` executes it.
+- When the model returns an empty plan, the intent is honestly reported as
+  unmatchable - never invented.
+- Deterministic `recall` remains the fallback on missing config, network
+  errors, or invalid output.
 
 ## Learning feedback loop
 
@@ -145,5 +196,8 @@ engine.
   generalizations) via `refine`, with a human-reviewed apply step.
 - Done: `recall --run` asks only for the varying values (prompt or
   `--value`), then executes the rest of the learned plan.
+- Done: `compile --llm` semantic naming for UIA-thin apps and `recall --llm`
+  intent-to-component mapping (Chinese/English intents both measured on the
+  JianYing workflow, see `docs/BENCHMARKS.md` E12).
 - Next: retrieval-time alias suggestion on misses and per-step
   precondition/effect alignment from facade deltas.

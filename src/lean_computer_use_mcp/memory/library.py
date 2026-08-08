@@ -38,9 +38,19 @@ class Memory:
         if self.path is not None:
             self.library.save(self.path)
 
-    def learn(self, recording: Recording) -> dict[str, int]:
-        """Ingest one recording; returns added/updated counts."""
-        components, template = extract_components(recording)
+    def learn(
+        self,
+        recording: Recording,
+        step_descriptions: dict[int, str] | None = None,
+    ) -> dict[str, int]:
+        """Ingest one recording; returns added/updated counts.
+
+        ``step_descriptions`` (1-based step index -> one-liner) come from
+        ``memory.enrich`` and become component descriptions.
+        """
+        components, template = extract_components(
+            recording, step_descriptions=step_descriptions
+        )
         added = 0
         for component in components:
             existing = self.library.components.get(component.id)

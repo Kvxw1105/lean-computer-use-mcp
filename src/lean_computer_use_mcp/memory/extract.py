@@ -49,11 +49,19 @@ def _frame(step: RecordedStep) -> Frame | None:
     return step.target.frame if step.target and step.target.frame else None
 
 
-def extract_components(recording: Recording) -> tuple[list[Component], TaskTemplate]:
-    """Build (unique components, task template) for one recording."""
+def extract_components(
+    recording: Recording, step_descriptions: dict[int, str] | None = None
+) -> tuple[list[Component], TaskTemplate]:
+    """Build (unique components, task template) for one recording.
+
+    ``step_descriptions`` maps 1-based step indices to semantic one-liners
+    produced by ``memory.enrich`` (LLM-assisted naming); they become the
+    component description so memory reads naturally after enrichment.
+    """
+    step_descriptions = step_descriptions or {}
     components: dict[str, Component] = {}
     ordered: list[Component] = []
-    for step in recording.steps:
+    for index, step in enumerate(recording.steps, start=1):
         component = Component(
             app=recording.app,
             action=step.action,
@@ -67,6 +75,7 @@ def extract_components(recording: Recording) -> tuple[list[Component], TaskTempl
             direction=step.direction,
             pages=step.pages,
             preconditions=_preconditions(recording, step),
+            description=step_descriptions.get(index, ""),
             created_at=recording.started_at,
         )
         existing = components.get(component.id)

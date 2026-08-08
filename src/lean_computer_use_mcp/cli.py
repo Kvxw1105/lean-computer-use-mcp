@@ -131,6 +131,22 @@ def main(argv: list[str] | None = None) -> int:
         help="Procedural memory file; learned components are added here",
     )
     compile_.add_argument(
+        "--llm",
+        action="store_true",
+        help="Ask the LLM to name coordinate-only steps before compiling",
+    )
+    compile_.add_argument(
+        "--api-base",
+        default=None,
+        help="OpenAI-compatible endpoint (default: LEAN_CU_VISION_API_BASE)",
+    )
+    compile_.add_argument(
+        "--api-key", default=None, help="API key (default: LEAN_CU_VISION_API_KEY)"
+    )
+    compile_.add_argument(
+        "--model", default=None, help="Model name (default: LEAN_CU_VISION_MODEL)"
+    )
+    compile_.add_argument(
         "--yes",
         action="store_true",
         help="Skip the library-store confirmation after the evidence report",
@@ -183,7 +199,7 @@ def main(argv: list[str] | None = None) -> int:
         "--library", default="memory/components.json", help="Memory file path"
     )
     components.add_argument(
-        "action", choices=["list", "search", "stats", "add-alias"], help="Operation"
+        "action", choices=["list", "search", "stats", "audit", "add-alias"], help="Operation"
     )
     components.add_argument("query", nargs="*", help="search query or id/alias pair")
 
@@ -198,6 +214,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     recall.add_argument(
         "--dry-run", action="store_true", help="Print the composed plan only (default)"
+    )
+    recall.add_argument(
+        "--llm",
+        action="store_true",
+        help="Let the LLM map the intent onto learned components "
+        "(deterministic recall is the fallback)",
+    )
+    recall.add_argument(
+        "--api-base",
+        default=None,
+        help="OpenAI-compatible endpoint (default: LEAN_CU_VISION_API_BASE)",
+    )
+    recall.add_argument(
+        "--api-key", default=None, help="API key (default: LEAN_CU_VISION_API_KEY)"
+    )
+    recall.add_argument(
+        "--model", default=None, help="Model name (default: LEAN_CU_VISION_MODEL)"
     )
     recall.add_argument(
         "--run", action="store_true", help="Execute the plan with per-step confirmation"
@@ -364,6 +397,37 @@ def _cmd_record(args: argparse.Namespace) -> int:
 
 def _cmd_compile(args: argparse.Namespace) -> int:
     recording = Recording.load(args.in_path)
+    descriptions: dict[int, str] = {}
+    if args.llm:
+        from lean_computer_use_mcp.memory.enrich import (
+            LlmEnricher,
+            enrich_recording,
+        )
+
+        settings = Settings.from_env()
+        enricher = LlmEnricher(
+            api_base=args.api_base or settings.vision_api_base,
+            api_key=args.api_key or settings.vision_api_key,
+            model=args.model or settings.vision_model,
+        )
+        try:
+            result = enricher.enrich(recording)
+        except ValueError as exc:
+            print(f"LLM enrichment skipped: {exc}", file=sys.stderr)
+        else:
+            if result.labels:
+                recording = enrich_recording(recording, result)
+                descriptions = {
+                    label.index: label.description
+                    for label in result.labels
+                    if label.description
+                }
+                print(
+                    f"LLM enrichment: {result.named}/{len(recording.steps)} steps "
+                    f"named ({len(result.skipped)} rejected)"
+                )
+            else:
+                print("LLM enrichment: no labels accepted; deterministic path used")
     out_dir = args.out_dir or f"skills/recorded/{recording.name}"
     skill_path, recording_path = write_skill(
         recording, out_dir, name=args.name, description=args.description
@@ -392,7 +456,9 @@ def _cmd_compile(args: argparse.Namespace) -> int:
             print(f"{index:>3}. {step.describe()}  {evidence_badges(step)}")
         if args.yes or confirm_store():
             memory = Memory(args.library)
-            learned = memory.learn(recording)
+            learned = memory.learn(
+                recording, descriptions if descriptions else None
+            )
             print(
                 f"Memory: {learned['components_added']} new components, "
                 f"{learned['templates']} templates -> {args.library}"
@@ -461,6 +527,32 @@ def _cmd_components(args: argparse.Namespace) -> int:
         for component, score in memory.search(query, limit=12):
             print(
                 f"{score:5.2f}  {component.id}  (hits={component.hits}, misses={component.misses})"
+            )
+        return 0
+    if args.action == "audit":
+        components = list(memory.library.components.values())
+        total = len(components)
+        named = sum(1 for component in components if component.name)
+        described = sum(1 for component in components if component.description)
+        templated = sum(1 for component in components if component.value_template)
+        top = sorted(
+            components,
+            key=lambda item: item.hits - item.misses,
+            reverse=True,
+        )[:5]
+        print(f"Components: {total}  Templates: {len(memory.library.templates)}")
+        if total:
+            print(
+                f"Semantic coverage: {named}/{total} named "
+                f"({100.0 * named / total:.1f}%)"
+            )
+            print(f"Described: {described}/{total}")
+            print(f"Parameterized values: {templated}/{total}")
+        print("Top components by use:")
+        for component in top:
+            print(
+                f"  {component.id}  (hits={component.hits}, "
+                f"misses={component.misses})"
             )
         return 0
     if args.action == "add-alias":
@@ -539,7 +631,25 @@ def _cmd_recall(args: argparse.Namespace) -> int:
     from lean_computer_use_mcp.memory.library import Memory
 
     memory = Memory(args.library)
-    plan = memory.recall(args.intent, app=args.app)
+    if args.llm:
+        from lean_computer_use_mcp.memory.llm_recall import LlmRecallMapper
+
+        settings = Settings.from_env()
+        mapper = LlmRecallMapper(
+            api_base=args.api_base or settings.vision_api_base,
+            api_key=args.api_key or settings.vision_api_key,
+            model=args.model or settings.vision_model,
+        )
+        try:
+            plan = mapper.compose(memory.library, args.intent, app=args.app)
+        except ValueError as exc:
+            print(
+                f"LLM recall failed: {exc}; using deterministic recall",
+                file=sys.stderr,
+            )
+            plan = memory.recall(args.intent, app=args.app)
+    else:
+        plan = memory.recall(args.intent, app=args.app)
     print(
         f"Recall {plan.kind} for {args.intent!r} "
         f"(score={plan.score}, tentative={plan.tentative})"

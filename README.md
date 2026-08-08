@@ -30,7 +30,11 @@ components** (e.g. `jianying::click::button::font-size`) and task templates,
 then compose new tasks from old building blocks. Replay feeds results back:
 successes raise popularity and teach effects, failures raise staleness.
 `refine` lets the model curate the library (aliases, merges, descriptions,
-template generalizations) with a human-reviewed apply step.
+template generalizations) with a human-reviewed apply step. `compile --llm`
+names coordinate-only steps semantically (crucial for UIA-thin apps such as
+JianYing), and `recall --llm` maps Chinese or English intents onto learned
+components - measured 72.6% lower model-visible context on the second run of
+the same task (see [docs/BENCHMARKS.md](docs/BENCHMARKS.md) E12).
 See [docs/MEMORY.md](docs/MEMORY.md).
 
 ## Record & Replay

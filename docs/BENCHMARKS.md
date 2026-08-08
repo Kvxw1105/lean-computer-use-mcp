@@ -251,3 +251,27 @@ Note: JianYing's UIA tree stays thin (3-5 parsed nodes per observe), so most
 clicks resolve from recorded coordinates (`[coords]`) and are marked
 `uncertain` in the compiled skill; success is verified by 12/12 completed
 steps, not by the upstream result flag alone.
+
+## E12: memory self-evolution loop on JianYing (measured 2026-08-08)
+
+The same 12-step subtitle workflow, executed twice: first as a fresh
+record+compile+replay (E10), then as a second task recalled from the semantic
+library and executed with a 3-step component plan. Per-call metrics:
+`benchmarks/results/e12-replay-metrics-20260808220324.jsonl` and
+`benchmarks/results/e12-recall2-metrics-20260808220503.jsonl`.
+
+| Run | Calls | Model-visible chars | Nodes | Local image bytes | Result |
+|---|---:|---:|---:|---:|---|
+| First task: record + compile + replay (E10) | 22 | 8,301 | 66 | 34,592,027 | 12/12 steps |
+| Second task: `recall --llm` + execute (E12) | 6 | 2,274 | 18 | 9,435,141 | 3/3 steps |
+
+Second-task reduction vs first-task replay: **72.6% fewer model-visible
+chars** (8,301 -> 2,274), 72.7% fewer calls (22 -> 6), 72.7% fewer nodes
+(66 -> 18). The `recall --llm` mapping itself costs one small text call
+(~1.5k input tokens, no image); deterministic recall returns an empty plan
+for this intent because no tokens overlap.
+
+Semantic naming also fixed library quality: `compile --llm` raised named
+steps from 2/12 to 11/12 and the library from 4 anonymous components to 7
+semantic ones (audit: `components audit` -> 85.7% named, 6/7 described).
+Library feedback after the two real runs: 12 hits, 0 misses.
