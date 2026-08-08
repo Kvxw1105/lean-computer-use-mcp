@@ -214,3 +214,40 @@ Implications:
 - The facade's state gate behaved correctly: a stale `state_id` (new process,
   empty store) was rejected with zero upstream action calls.
 
+## E10: real record -> compile -> replay loop on JianYing (measured 2026-08-08)
+
+Full pipeline over a live desktop: a 12-step JianYing subtitle workflow was
+recorded with `record` (payload stored in the recording: 13,577 text chars,
+26,889,062 image bytes, 53 nodes), compiled to a skill, and replayed through
+the facade with a metrics file. Regenerate with:
+
+```sh
+uv run python benchmarks/e10_real_record_replay.py \
+    --recording recordings/jianying-user-clean.json \
+    --skill-dir <out> --library <lib.json> --metrics <out>.jsonl
+```
+
+Counts and sizes only are appended to `benchmarks/results/e10-<date>.jsonl`;
+per-call metrics for this run: `benchmarks/results/e10-metrics-20260808212401.jsonl`.
+No screen text, window titles, or images are stored.
+
+| Phase | Metric | Value |
+|---|---:|
+| Compile | SKILL.md size | 2,272 chars (12 steps) |
+| Replay | facade calls | 22 (11 `cu_observe` + 11 `cu_act`) |
+| Replay | model-visible text | 8,301 chars |
+| Replay | image bytes to model | 0 (34,592,027 captured, kept local) |
+| Replay | nodes | 66 |
+| Replay | stale-state rejections | 0 |
+| Replay | completed steps | 12/12 |
+| Replay | vision-engine calls | 0 |
+
+Reduction vs the upstream default snapshot (437,779 model-visible chars per
+`get_app_state`, M1 row): 22 calls x 437,779 = 9,631,138 equivalent chars vs
+8,301 facade chars -> **99.91% lower**; the image payload is 100% locally
+gated (34.6 MB captured, 0 bytes to the model).
+
+Note: JianYing's UIA tree stays thin (3-5 parsed nodes per observe), so most
+clicks resolve from recorded coordinates (`[coords]`) and are marked
+`uncertain` in the compiled skill; success is verified by 12/12 completed
+steps, not by the upstream result flag alone.
