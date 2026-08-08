@@ -32,11 +32,25 @@ VK_INSERT = 0x2D
 VK_DELETE = 0x2E
 VK_LWIN = 0x5B
 VK_RWIN = 0x5C
+# Low-level hooks report the left/right variants of Shift/Ctrl/Alt (0xA0-0xA5);
+# they must canonicalize to the same names as the generic VK codes.
+VK_LSHIFT = 0xA0
+VK_RSHIFT = 0xA1
+VK_LCONTROL = 0xA2
+VK_RCONTROL = 0xA3
+VK_LMENU = 0xA4
+VK_RMENU = 0xA5
 
 _MODIFIERS = {
     VK_SHIFT: "Shift",
+    VK_LSHIFT: "Shift",
+    VK_RSHIFT: "Shift",
     VK_CONTROL: "Control",
+    VK_LCONTROL: "Control",
+    VK_RCONTROL: "Control",
     VK_MENU: "Alt",
+    VK_LMENU: "Alt",
+    VK_RMENU: "Alt",
     VK_LWIN: "Win",
     VK_RWIN: "Win",
 }

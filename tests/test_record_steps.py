@@ -103,6 +103,36 @@ def test_click_matched_and_unmatched():
     assert second.x == 700 and second.y == 600
 
 
+def test_left_right_modifier_variants_are_modifiers():
+    from lean_computer_use_mcp.record.keys import (
+        VK_LCONTROL,
+        VK_LSHIFT,
+        is_modifier,
+        vk_name,
+    )
+
+    assert is_modifier(VK_LCONTROL) and is_modifier(VK_LSHIFT)
+    assert vk_name(VK_LCONTROL) == "Control"
+    assert vk_name(VK_LSHIFT) == "Shift"
+
+
+def test_stop_combo_with_left_modifiers_is_filtered():
+    from lean_computer_use_mcp.record.keys import VK_LCONTROL, VK_LSHIFT
+
+    table = _table()
+    events = [
+        InputEvent(ts=1.0, kind="key_down", vk=VK_LCONTROL, window_title=TITLE),
+        InputEvent(ts=1.1, kind="key_down", vk=VK_LSHIFT, window_title=TITLE),
+        InputEvent(ts=1.2, kind="key_down", vk=0x52, window_title=TITLE),  # R
+        InputEvent(ts=1.3, kind="key_up", vk=VK_LCONTROL, window_title=TITLE),
+        InputEvent(ts=1.4, kind="key_up", vk=VK_LSHIFT, window_title=TITLE),
+        InputEvent(ts=2.0, kind="key_down", vk=0x41, window_title=TITLE),  # a
+    ]
+    steps = build_steps(events, [table])
+    # The stop hotkey (Control+Shift+R) is filtered; only the 'a' remains.
+    assert [(s.action, s.value) for s in steps] == [("type_text", "a")]
+
+
 def test_click_uncertain_flag():
     table = _table()
     steps = build_steps(
