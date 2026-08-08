@@ -33,13 +33,10 @@ _IS_WINDOWS = sys.platform == "win32"
 # Window styles and messages.
 _WS_POPUP = 0x80000000
 _WS_EX_LAYERED = 0x00080000
+_WS_EX_TOPMOST = 0x00000008
 _WS_EX_TRANSPARENT = 0x00000020
 _WS_EX_TOOLWINDOW = 0x00000080
 _WS_EX_NOACTIVATE = 0x08000000
-_HWND_TOPMOST = -1
-_SWP_NOACTIVATE = 0x0010
-_SWP_NOMOVE = 0x0002
-_SWP_NOSIZE = 0x0001
 _SW_SHOWNOACTIVATE = 4
 _WM_APP = 0x8000
 _WM_HIDE = _WM_APP + 1
@@ -257,6 +254,56 @@ def _edge_mask(
     return ImageChops.multiply(profile_img, factor_img)
 
 
+def render_edge(
+    orientation: str,
+    length: int,
+    band: int,
+    inner: int,
+    color_left: tuple[int, int, int],
+    color_right: tuple[int, int, int],
+    phase: float = 0.0,
+    waves: float = 2.5,
+    amplitude: float = 0.0,
+) -> Image.Image:
+    """Render one screen-edge RGBA strip.
+
+    ``orientation`` is one of ``top``/``bottom``/``left``/``right`` and
+    ``length`` is the strip extent along the edge. Horizontal strips keep
+    the left->right color blend; vertical strips use the single edge color.
+    The strip is band-thick, so a 24fps animation costs a small fraction of
+    a full-screen frame. ``amplitude=0`` keeps the frame static.
+    """
+    if length <= 0 or band <= 0:
+        return Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+    band = max(2, min(band, max(2, length // 2)))
+    inner = max(0, min(inner, band - 1))
+    horizontal = orientation in ("top", "bottom")
+    size = (length, band) if horizontal else (band, length)
+
+    alpha = Image.new("L", (1, band))
+    for i in range(band):
+        if i < inner:
+            alpha.putpixel((0, i), 255)
+        else:
+            t = (i - inner) / max(1, band - inner)
+            alpha.putpixel((0, i), int(255 * (1.0 - t) ** 2))
+    direction = {"top": 0, "bottom": 1, "left": 2, "right": 3}[orientation]
+    mask = _edge_mask(alpha, length, band, phase, waves, amplitude, direction)
+
+    if horizontal:
+        edge = Image.new("RGB", (2, 1))
+        edge.putpixel((0, 0), color_left)
+        edge.putpixel((1, 0), color_right)
+        color_img = edge.resize((length, 1), Image.Resampling.BILINEAR)
+        color_img = color_img.resize((length, band), Image.Resampling.BILINEAR)
+    else:
+        color = color_left if orientation == "left" else color_right
+        color_img = Image.new("RGB", (1, 1), color).resize(
+            (band, length), Image.Resampling.BILINEAR
+        )
+    return Image.merge("RGBA", (*color_img.split(), mask))
+
+
 def premultiply_alpha(img: Image.Image) -> Image.Image:
     """Convert straight alpha to premultiplied alpha (AC_SRC_ALPHA needs it)."""
     if img.mode != "RGBA":
@@ -307,12 +354,14 @@ def make_overlay(enabled: bool = True) -> Overlay:
 
 
 class WinGlowOverlay:
-    """Click-through topmost glow window; all Win32 access is lazy.
+    """Click-through topmost glow windows; all Win32 access is lazy.
 
-    The window is created on a dedicated message-loop thread (same pattern as
-    ``record/win_hooks.py``). Rendering and the ``UpdateLayeredWindow`` call
-    happen on that thread too, so the window is always owned and updated by
-    its creating thread.
+    Four thin layered windows (one per screen edge) are created on a
+    dedicated message-loop thread (same pattern as ``record/win_hooks.py``).
+    Rendering and the ``UpdateLayeredWindow`` calls happen on that thread
+    too. Edge strips keep the per-frame DIB tiny (a fraction of a
+    full-screen bitmap) and update reliably - unlike a full-screen layered
+    window fed with a half-resolution DIB, which Windows stops refreshing.
     """
 
     def __init__(
@@ -326,7 +375,6 @@ class WinGlowOverlay:
         cycle_seconds: float = 2.0,
         waves: float = 2.5,
         amplitude: float = 0.3,
-        scale: float = 0.5,
     ) -> None:
         self._band = band
         self._inner = inner
@@ -337,14 +385,12 @@ class WinGlowOverlay:
         self._cycle_seconds = cycle_seconds
         self._waves = waves
         self._amplitude = amplitude
-        self._scale = scale
-        self._hwnd: int | None = None
+        self._hwnds: list[int] = []
+        self._strips: list[tuple[int, int, int, int]] = []
         self._thread: threading.Thread | None = None
         self._thread_id = 0
         self._ready = threading.Event()
         self._wndproc: _WNDPROC | None = None
-        self._pending: tuple[int, int, bytes] | None = None
-        self._origin = (0, 0)
         self._width = 0
         self._height = 0
         self._seq = 0  # unique window-class name per show(), so re-show works
@@ -352,7 +398,7 @@ class WinGlowOverlay:
     def show(self) -> None:
         if not _IS_WINDOWS:
             raise RealInputUnavailableError("recording overlay requires Windows")
-        if self._hwnd is not None:
+        if self._hwnds:
             return
         self._ready.clear()
         self._thread = threading.Thread(
@@ -361,26 +407,14 @@ class WinGlowOverlay:
         self._thread.start()
         if not self._ready.wait(10.0):
             raise RuntimeError("overlay window creation timed out")
-        if self._hwnd is None:
+        if not self._hwnds:
             raise RuntimeError("overlay window creation failed")
-        width, height = self._virtual_screen_rect()[2:]
-        if width <= 0 or height <= 0:
-            raise RuntimeError("cannot determine screen size")
-        glow = render_glow(
-            width,
-            height,
-            band=self._band,
-            inner=self._inner,
-            color_left=self._color_left,
-            color_right=self._color_right,
-        )
-        self._pending = (width, height, to_bgra_bytes(premultiply_alpha(glow)))
         _user32().PostThreadMessageW(self._thread_id, _WM_UPDATE, 1, 0)
 
     def hide(self) -> None:
         thread = self._thread
         if thread is None or not thread.is_alive():
-            self._hwnd = None
+            self._hwnds = []
             return
         _user32().PostThreadMessageW(self._thread_id, _WM_HIDE, 0, 0)
         thread.join(timeout=5.0)
@@ -406,40 +440,44 @@ class WinGlowOverlay:
             self._ready.set()
             return
         x, y, width, height = self._virtual_screen_rect()
-        self._origin = (x, y)
         self._width = width
         self._height = height
-        hwnd = user32.CreateWindowExW(
-            _WS_EX_LAYERED
-            | _WS_EX_TRANSPARENT
-            | _WS_EX_TOOLWINDOW
-            | _WS_EX_NOACTIVATE,
-            class_name,
-            None,
-            _WS_POPUP,
-            x,
-            y,
-            width,
-            height,
-            None,
-            None,
-            instance,
-            None,
-        )
-        if not hwnd:
-            self._ready.set()
-            return
-        user32.SetWindowPos(
-            hwnd,
-            _HWND_TOPMOST,
-            x,
-            y,
-            0,
-            0,
-            _SWP_NOACTIVATE | _SWP_NOMOVE | _SWP_NOSIZE,
-        )
-        user32.ShowWindow(hwnd, _SW_SHOWNOACTIVATE)
-        self._hwnd = hwnd
+        band = max(2, min(self._band, min(width, height) // 2))
+        positions = [
+            (x, y, width, band),  # top
+            (x, y + height - band, width, band),  # bottom
+            (x, y + band, band, height - 2 * band),  # left
+            (x + width - band, y + band, band, height - 2 * band),  # right
+        ]
+        for px, py, pw, ph in positions:
+            if pw <= 0 or ph <= 0:
+                continue
+            # WS_EX_TOPMOST must be in the create-time ex-style: on some
+            # systems SetWindowPos(HWND_TOPMOST) returns TRUE without
+            # actually raising the window, leaving it under fullscreen apps.
+            hwnd = user32.CreateWindowExW(
+                _WS_EX_LAYERED
+                | _WS_EX_TRANSPARENT
+                | _WS_EX_TOOLWINDOW
+                | _WS_EX_NOACTIVATE
+                | _WS_EX_TOPMOST,
+                class_name,
+                None,
+                _WS_POPUP,
+                px,
+                py,
+                pw,
+                ph,
+                None,
+                None,
+                instance,
+                None,
+            )
+            if not hwnd:
+                continue
+            user32.ShowWindow(hwnd, _SW_SHOWNOACTIVATE)
+            self._hwnds.append(hwnd)
+            self._strips.append((px, py, pw, ph))
         self._thread_id = int(ctypes.windll.kernel32.GetCurrentThreadId())
         self._ready.set()
         msg = wt.MSG()
@@ -448,60 +486,35 @@ class WinGlowOverlay:
             if result <= 0:
                 break
             if msg.message == _WM_UPDATE:
-                self._animate(hwnd, gdi32, user32)
+                self._animate(gdi32, user32)
             elif msg.message == _WM_HIDE:
-                user32.DestroyWindow(hwnd)
+                for hwnd in self._hwnds:
+                    user32.DestroyWindow(hwnd)
                 user32.PostQuitMessage(0)
             else:
                 user32.TranslateMessage(ctypes.byref(msg))
                 user32.DispatchMessageW(ctypes.byref(msg))
-        self._hwnd = None
+        self._hwnds = []
+        self._strips = []
 
     def _animate(
-        self, hwnd: int, gdi32: ctypes.WinDLL, user32: ctypes.WinDLL
+        self, gdi32: ctypes.WinDLL, user32: ctypes.WinDLL
     ) -> None:
-        """Apply the first frame, then run the low-cost wave animation.
+        """Run the low-cost wave animation on the window-owner thread.
 
-        Runs on the window-owner thread; the loop sleeps toward the next
-        frame and polls for hide/quit messages with ``PeekMessageW``, so
-        ``hide()`` still interrupts immediately. Animation frames are
-        rendered at ``scale`` resolution (default 0.5x) - the layered
-        window stretches them for free, cutting the per-frame DIB bytes by
-        4x while the soft glow stays visually identical.
+        The loop sleeps toward the next frame and polls for hide/quit
+        messages with ``PeekMessageW``, so ``hide()`` interrupts promptly.
+        Each frame renders four small edge strips and updates four thin
+        layered windows - no full-screen bitmaps at all.
         """
-        if self._pending is not None:
-            self._apply_update(hwnd, gdi32, user32, *self._pending)
-            self._pending = None
-        if not self._animate_on or self._width <= 0 or self._height <= 0:
+        if not self._animate_on or not self._hwnds:
             return
-        width = max(1, int(self._width * self._scale))
-        height = max(1, int(self._height * self._scale))
-        band = max(2, int(self._band * self._scale))
-        inner = max(1, min(int(self._inner * self._scale), band - 1))
         frame_time = 1.0 / max(1.0, self._fps)
-        phase_step = frame_time / max(0.5, self._cycle_seconds)  # turns per frame
+        phase_step = frame_time / max(0.5, self._cycle_seconds)  # turns/frame
         phase = 0.0
         msg = wt.MSG()
         while True:
-            glow = render_glow(
-                width,
-                height,
-                band=band,
-                inner=inner,
-                color_left=self._color_left,
-                color_right=self._color_right,
-                phase=phase,
-                waves=self._waves,
-                amplitude=self._amplitude,
-            )
-            self._apply_update(
-                hwnd,
-                gdi32,
-                user32,
-                width,
-                height,
-                to_bgra_bytes(premultiply_alpha(glow)),
-            )
+            self._render_frame(phase)
             phase = (phase + phase_step) % 1.0
             deadline = time.monotonic() + frame_time
             while True:
@@ -510,7 +523,8 @@ class WinGlowOverlay:
                     break
                 if user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 1):
                     if msg.message == _WM_HIDE:
-                        user32.DestroyWindow(hwnd)
+                        for hwnd in self._hwnds:
+                            user32.DestroyWindow(hwnd)
                         user32.PostQuitMessage(0)
                         return
                     if msg.message == _WM_QUIT:
@@ -520,15 +534,50 @@ class WinGlowOverlay:
                     continue
                 time.sleep(min(0.005, remaining))
 
+    def _render_frame(self, phase: float) -> None:
+        user32 = _user32()
+        gdi32 = _gdi32()
+        orientations = ("top", "bottom", "left", "right")
+        for index, hwnd in enumerate(self._hwnds):
+            if index >= len(self._strips):
+                break
+            px, py, pw, ph = self._strips[index]
+            length = pw if index < 2 else ph
+            glow = render_edge(
+                orientations[index],
+                length,
+                self._band,
+                self._inner,
+                self._color_left,
+                self._color_right,
+                phase=phase,
+                waves=self._waves,
+                amplitude=self._amplitude,
+            )
+            width, height = glow.size
+            self._apply_update(
+                hwnd,
+                gdi32,
+                user32,
+                px,
+                py,
+                width,
+                height,
+                to_bgra_bytes(premultiply_alpha(glow)),
+            )
+
     def _apply_update(
         self,
         hwnd: int,
         gdi32: ctypes.WinDLL,
         user32: ctypes.WinDLL,
+        x: int,
+        y: int,
         width: int,
         height: int,
         data: bytes,
     ) -> None:
+        """Blit one strip DIB into its layered window (DIB == window size)."""
         hdc_screen = user32.GetDC(None)
         if not hdc_screen:
             return
@@ -558,7 +607,6 @@ class WinGlowOverlay:
                 return
             previous = gdi32.SelectObject(hdc_mem, hbm)
             ctypes.memmove(bits, data, len(data))
-            x, y = self._origin
             destination = _POINT(x, y)
             size = _SIZE(width, height)
             source = _POINT(0, 0)
@@ -601,7 +649,6 @@ class WinGlowOverlay:
                 _user32().SetProcessDPIAware()
             except Exception:  # noqa: BLE001
                 pass
-
 
 _user32_cache: ctypes.WinDLL | None = None
 _gdi32_cache: ctypes.WinDLL | None = None
@@ -734,6 +781,7 @@ __all__ = [
     "WinGlowOverlay",
     "make_overlay",
     "premultiply_alpha",
+    "render_edge",
     "render_glow",
     "to_bgra_bytes",
 ]

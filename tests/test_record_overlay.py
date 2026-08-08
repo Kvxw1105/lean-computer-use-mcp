@@ -15,6 +15,7 @@ from lean_computer_use_mcp.record.overlay import (
     _wave_factor,
     make_overlay,
     premultiply_alpha,
+    render_edge,
     render_glow,
     to_bgra_bytes,
 )
@@ -114,6 +115,37 @@ def test_edge_mask_right_edge_mirrors_profile():
     # tail), x=3 touches the screen edge (profile head).
     assert mask.getpixel((0, 10)) == 50
     assert mask.getpixel((3, 10)) == 200
+
+
+def test_render_edge_horizontal_strip_shape_and_blend():
+    img = render_edge("top", 320, 10, 3, (76, 111, 247), (166, 88, 248))
+    assert img.size == (320, 10)
+    assert img.mode == "RGBA"
+    left = img.getpixel((0, 1))
+    right = img.getpixel((319, 1))
+    # blue at the left, purple at the right (red channel rises); both opaque
+    assert left[0] < left[2]
+    assert right[0] < right[2]
+    assert left[0] < right[0]
+    assert left[3] == 255
+    assert right[3] == 255
+
+
+def test_render_edge_vertical_strip_shape_and_fade():
+    img = render_edge("left", 200, 10, 3, (76, 111, 247), (166, 88, 248))
+    assert img.size == (10, 200)
+    assert img.getpixel((0, 100))[3] == 255
+    assert img.getpixel((9, 100))[3] < 255
+
+
+def test_render_edge_animated_frames_differ():
+    a = render_edge("top", 320, 10, 3, (76, 111, 247), (166, 88, 248),
+                    phase=0.0, amplitude=0.5)
+    b = render_edge("top", 320, 10, 3, (76, 111, 247), (166, 88, 248),
+                    phase=0.5, amplitude=0.5)
+    assert a.tobytes() != b.tobytes()
+    static = render_edge("top", 320, 10, 3, (76, 111, 247), (166, 88, 248))
+    assert static.getpixel((160, 1))[3] == 255
 
 
 def test_render_glow_small_screen_clamps_band():
