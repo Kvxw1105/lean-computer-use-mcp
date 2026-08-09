@@ -23,7 +23,7 @@ from lean_computer_use_mcp.config_store import (
     load_config,
     public_provider_view,
     providers_from_config,
-    save_config,
+    update_config,
     ping_endpoint,
 )
 
@@ -87,12 +87,20 @@ class _ConfigUIHandler(BaseHTTPRequestHandler):
                 return
             config = load_config(self.config_path)
             providers = providers_from_config(config)
+            try:
+                loaded_at = self.config_path.stat().st_mtime
+            except OSError:
+                loaded_at = None
             self._json(
                 200,
                 {
                     "engine": config.get("engine", "llm"),
                     "model": config.get("model", ""),
                     "providers": public_provider_view(providers),
+                    # the on-disk state the panel saw; saves echo it back so
+                    # endpoints added by another agent after this load are
+                    # preserved instead of clobbered (see _save)
+                    "loaded_at": loaded_at,
                 },
             )
             return
@@ -113,47 +121,81 @@ class _ConfigUIHandler(BaseHTTPRequestHandler):
         self._json(404, {"error": "not found"})
 
     def _save(self, body: dict[str, Any]) -> None:
-        config = load_config(self.config_path)
-        engine = str(body.get("engine") or config.get("engine", "llm"))
-        model = str(body.get("model") or "")
-        raw_providers: list[dict[str, Any]] = []
+        """Save under the cross-process config lock, merging concurrent writes.
+
+        The panel payload describes the endpoints *this session* saw. Without
+        a merge, a panel that loaded the store before another agent added an
+        endpoint would silently delete that endpoint on save. Merge rule: any
+        file provider not present in the payload is preserved when the file
+        changed after the panel loaded (``loaded_at``, the file mtime the
+        panel received on GET); payloads without ``loaded_at`` (old clients)
+        keep full-replace semantics. Empty keys keep the stored secret for the
+        same base URL, exactly as before.
+        """
+        loaded_at = body.get("loaded_at")
+        wanted: list[dict[str, Any]] = []
         for entry in body.get("providers", []):
             if not isinstance(entry, dict):
                 continue
             api_base = str(entry.get("api_base") or "").strip()
             if not api_base:
                 continue
-            api_key = str(entry.get("api_key") or "").strip()
-            if not api_key:
-                # empty key means keep the stored secret for this api_base
-                stored = next(
-                    (
-                        old.get("api_key", "")
-                        for old in config.get("providers", [])
-                        if isinstance(old, dict) and str(old.get("api_base", "")).rstrip("/")
-                        == api_base.rstrip("/")
-                    ),
-                    "",
-                )
-                if not stored:
-                    self._json(400, {"error": "new endpoint needs an api_key"})
-                    return
-                api_key = stored
-            raw_providers.append(
+            wanted.append(
                 {
                     "api_base": api_base,
-                    "api_key": api_key,
+                    "api_key": str(entry.get("api_key") or "").strip(),
                     "model": str(entry.get("model") or "").strip(),
                 }
             )
-        if not raw_providers:
-            self._json(400, {"error": "at least one endpoint with api_key is required"})
+
+        def _apply(cfg: dict[str, Any]) -> dict[str, str] | None:
+            file_providers = [
+                p
+                for p in cfg.get("providers", [])
+                if isinstance(p, dict)
+            ]
+            stored = {
+                str(p.get("api_base", "")).rstrip("/"): str(p.get("api_key", ""))
+                for p in file_providers
+            }
+            merged: list[dict[str, Any]] = [dict(entry) for entry in wanted]
+            for entry in merged:
+                if not entry["api_key"]:
+                    # empty key means keep the stored secret for this api_base
+                    entry["api_key"] = stored.get(entry["api_base"].rstrip("/"), "")
+            if loaded_at is not None:
+                try:
+                    loaded_at_f = float(loaded_at)
+                except (TypeError, ValueError):
+                    loaded_at_f = -1.0
+                try:
+                    file_mtime = self.config_path.stat().st_mtime
+                except OSError:
+                    file_mtime = 0.0
+                if file_mtime > loaded_at_f:
+                    seen = {entry["api_base"].rstrip("/") for entry in merged}
+                    preserved = [
+                        dict(p)
+                        for p in file_providers
+                        if str(p.get("api_base", "")).rstrip("/") not in seen
+                        and str(p.get("api_key", ""))
+                    ]
+                    merged.extend(preserved)
+            if not merged:
+                return {"error": "at least one endpoint with api_key is required"}
+            for entry in merged:
+                if not entry["api_key"]:
+                    return {"error": "new endpoint needs an api_key"}
+            cfg["engine"] = str(body.get("engine") or cfg.get("engine", "llm"))
+            cfg["model"] = str(body.get("model") or "")
+            cfg["providers"] = merged
+            return None
+
+        error = update_config(_apply, self.config_path)
+        if error:
+            self._json(400, error)
             return
-        save_config(
-            {"engine": engine, "model": model, "providers": raw_providers},
-            self.config_path,
-        )
-        self._json(200, {"ok": True, "saved": len(raw_providers)})
+        self._json(200, {"ok": True, "saved": len(wanted)})
 
     def _test(self, body: dict[str, Any]) -> None:
         api_base = str(body.get("api_base") or "").strip()

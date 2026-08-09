@@ -506,7 +506,7 @@ matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
   if (!localStorage.getItem(THEME_KEY)) applyTheme(systemTheme());
 });
 
-let state = { engine: "llm", model: "", providers: [] };
+let state = { engine: "llm", model: "", providers: [], loaded_at: null };
 let toastTimer = null;
 
 function el(tag, cls, text) {
@@ -647,7 +647,7 @@ async function load() {
     const res = await api("/api/config");
     if (!res.ok) throw new Error("加载失败: " + res.status);
     const data = await res.json();
-    state = { engine: data.engine, model: data.model, providers: data.providers.map(p => ({ ...p, api_key: "" })) };
+    state = { engine: data.engine, model: data.model, providers: data.providers.map(p => ({ ...p, api_key: "" })), loaded_at: data.loaded_at };
     document.getElementById("engine").value = data.engine;
     document.getElementById("default-model").value = data.model;
     render();
@@ -664,6 +664,7 @@ async function save() {
   const body = {
     engine: document.getElementById("engine").value,
     model: document.getElementById("default-model").value,
+    loaded_at: state.loaded_at,
     providers: state.providers.map(p => ({
       api_base: (p.api_base || "").trim(),
       api_key: (p.api_key || "").trim(),

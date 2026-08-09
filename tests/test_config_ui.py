@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -107,6 +108,133 @@ def test_save_new_endpoint_without_key_rejected(ui) -> None:
     }
     response = httpx.post(base + "/api/config", params={"t": token}, json=payload)
     assert response.status_code == 400
+
+
+def test_config_get_includes_loaded_at(ui) -> None:
+    panel, config_path = ui
+    token = _token(panel.url)
+    base = panel.url.split("?")[0]
+    # no file yet
+    data = httpx.get(base + "/api/config", params={"t": token}).json()
+    assert data["loaded_at"] is None
+    # after a file exists, loaded_at is its mtime
+    save_config(
+        {"engine": "llm", "providers": []}, config_path
+    )
+    data = httpx.get(base + "/api/config", params={"t": token}).json()
+    assert data["loaded_at"] == os.path.getmtime(config_path)
+
+
+def test_save_preserves_endpoint_added_after_load(ui) -> None:
+    """Shared-config 乌龙 regression: a panel that loaded the store before
+    another agent added an endpoint must not delete it on save."""
+    panel, config_path = ui
+    token = _token(panel.url)
+    base = panel.url.split("?")[0]
+    save_config(
+        {"engine": "llm", "providers": [{"api_base": "https://a.test/v1", "api_key": "ka"}]},
+        config_path,
+    )
+
+    # the panel loads the store...
+    loaded_at = httpx.get(base + "/api/config", params={"t": token}).json()["loaded_at"]
+    # ...then another agent adds X to the shared store
+    save_config(
+        {
+            "engine": "llm",
+            "providers": [
+                {"api_base": "https://a.test/v1", "api_key": "ka"},
+                {"api_base": "https://x.test/v1", "api_key": "kx"},
+            ],
+        },
+        config_path,
+    )
+    assert os.path.getmtime(config_path) > loaded_at
+
+    # the panel saves its own (stale) view; X must survive
+    response = httpx.post(
+        base + "/api/config",
+        params={"t": token},
+        json={
+            "engine": "llm",
+            "model": "",
+            "loaded_at": loaded_at,
+            "providers": [{"api_base": "https://a.test/v1", "api_key": "ka2"}],
+        },
+    )
+    assert response.status_code == 200
+    data = httpx.get(base + "/api/config", params={"t": token}).json()
+    bases = [p["api_base"] for p in data["providers"]]
+    assert bases == ["https://a.test/v1", "https://x.test/v1"]
+    # the panel's own edit (new key) was applied, X keeps its secret
+    assert data["providers"][1]["key_masked"] == "***"
+
+
+def test_save_removes_endpoint_the_panel_saw(ui) -> None:
+    """Endpoints visible at panel load are removable; the merge only protects
+    writes the panel could not have seen."""
+    panel, config_path = ui
+    token = _token(panel.url)
+    base = panel.url.split("?")[0]
+    save_config(
+        {
+            "engine": "llm",
+            "providers": [
+                {"api_base": "https://a.test/v1", "api_key": "ka"},
+                {"api_base": "https://b.test/v1", "api_key": "kb"},
+            ],
+        },
+        config_path,
+    )
+    loaded_at = httpx.get(base + "/api/config", params={"t": token}).json()["loaded_at"]
+    response = httpx.post(
+        base + "/api/config",
+        params={"t": token},
+        json={
+            "engine": "llm",
+            "model": "",
+            "loaded_at": loaded_at,
+            "providers": [{"api_base": "https://a.test/v1", "api_key": "ka"}],
+        },
+    )
+    assert response.status_code == 200
+    bases = [
+        p["api_base"]
+        for p in httpx.get(base + "/api/config", params={"t": token}).json()["providers"]
+    ]
+    assert bases == ["https://a.test/v1"]
+
+
+def test_save_without_loaded_at_replaces_all(ui) -> None:
+    """Old panel clients (no loaded_at) keep full-replace semantics."""
+    panel, config_path = ui
+    token = _token(panel.url)
+    base = panel.url.split("?")[0]
+    save_config(
+        {
+            "engine": "llm",
+            "providers": [
+                {"api_base": "https://a.test/v1", "api_key": "ka"},
+                {"api_base": "https://x.test/v1", "api_key": "kx"},
+            ],
+        },
+        config_path,
+    )
+    response = httpx.post(
+        base + "/api/config",
+        params={"t": token},
+        json={
+            "engine": "llm",
+            "model": "",
+            "providers": [{"api_base": "https://a.test/v1", "api_key": "ka"}],
+        },
+    )
+    assert response.status_code == 200
+    bases = [
+        p["api_base"]
+        for p in httpx.get(base + "/api/config", params={"t": token}).json()["providers"]
+    ]
+    assert bases == ["https://a.test/v1"]
 
 
 def test_ping_endpoint_via_panel(ui) -> None:

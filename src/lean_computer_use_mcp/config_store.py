@@ -8,17 +8,24 @@ the legacy environment variables otherwise, so existing setups keep working.
 Keys are stored plaintext in the user profile directory (the same trust
 boundary as environment variables); the web UI only ever echoes masked
 keys and requires a per-session token. No key ever appears in logs.
+
+The store is shared by every agent/process on the machine. Writes are
+serialized by a cross-process lock and mutations re-read the file under
+that lock (see :func:`update_config`), so concurrent writers merge instead
+of clobbering each other.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import sys
 import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Iterator
 from urllib.parse import urlparse
 
 from lean_computer_use_mcp.vision.base import VisionProvider
@@ -60,7 +67,13 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
 
 
 def save_config(config: dict[str, Any], path: Path | None = None) -> None:
-    """Atomically write the config file (temp file + replace)."""
+    """Atomically write the config file (temp file + replace).
+
+    Callers that mutate the existing state must use :func:`update_config`
+    instead of read-then-``save_config``: two agents/processes on the same
+    machine share this file, and an unlocked read-modify-write lets one
+    writer silently clobber endpoints the other just saved.
+    """
     config_path = path or default_config_path()
     config_path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(config, ensure_ascii=False, indent=2) + "\n"
@@ -77,6 +90,84 @@ def save_config(config: dict[str, Any], path: Path | None = None) -> None:
         except OSError:
             pass
         raise
+
+
+@contextlib.contextmanager
+def config_lock(path: Path | None = None, timeout_seconds: float = 10.0) -> Iterator[None]:
+    """Cross-process advisory lock around config read-modify-write cycles.
+
+    The web panel, the ``config`` CLI and any MCP server that writes the
+    store may run in different processes (or different agents on the same
+    machine), all sharing ``~/.lean-cu/config.json``. Without a lock a
+    read-modify-write interleaving loses writes; with it, writers serialize
+    and each mutation starts from the freshest on-disk state.
+
+    The lock lives in a separate ``<config>.lock`` file that is never
+    deleted (unlinking a lock file while another process holds it breaks
+    exclusion). Platforms without ``msvcrt``/``fcntl`` degrade to a no-op,
+    which is still better than nothing on those systems.
+    """
+    config_path = path or default_config_path()
+    lock_path = config_path.with_suffix(config_path.suffix + ".lock")
+    try:
+        if sys.platform == "win32":
+            import msvcrt  # type: ignore[import-not-found]
+
+            fd = os.open(lock_path, os.O_RDWR | os.O_CREAT)
+            acquire = lambda: msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            release = lambda: msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl  # type: ignore[import-not-found]
+
+            fd = os.open(lock_path, os.O_RDWR | os.O_CREAT)
+            acquire = lambda: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            release = lambda: fcntl.flock(fd, fcntl.LOCK_UN)
+    except ImportError:  # no locking primitive on this platform: best effort
+        yield
+        return
+    try:
+        deadline = time.monotonic() + timeout_seconds
+        while True:
+            try:
+                acquire()
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError(
+                        f"config lock {lock_path} still held after "
+                        f"{timeout_seconds:.0f}s; another agent or process is "
+                        "writing the shared config"
+                    ) from None
+                time.sleep(0.05)
+        yield
+    finally:
+        try:
+            release()
+        except OSError:
+            pass
+        os.close(fd)
+
+
+def update_config(
+    mutator: Callable[[dict[str, Any]], Any],
+    path: Path | None = None,
+    timeout_seconds: float = 10.0,
+) -> Any:
+    """Atomic read-modify-write of the config file under the cross-process lock.
+
+    ``mutator`` receives the freshest config dict and mutates it in place;
+    its return value is passed through to the caller. All mutations of the
+    shared store (CLI add/remove/reorder, panel save) must go through here:
+    a stale snapshot read earlier can never clobber endpoints another agent
+    saved in the meantime, because the mutation re-reads the file inside the
+    lock.
+    """
+    config_path = path or default_config_path()
+    with config_lock(config_path, timeout_seconds=timeout_seconds):
+        config = load_config(config_path)
+        result = mutator(config)
+        save_config(config, config_path)
+    return result
 
 
 def mask_key(api_key: str) -> str:

@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from lean_computer_use_mcp.config_store import (
+    config_lock,
     host_of,
     load_config,
     mask_key,
@@ -15,6 +16,7 @@ from lean_computer_use_mcp.config_store import (
     public_provider_view,
     save_config,
     ping_endpoint,
+    update_config,
 )
 from lean_computer_use_mcp.vision.base import VisionProvider
 
@@ -167,3 +169,82 @@ def test_env_providers_override_config_file(monkeypatch, tmp_path) -> None:
     )
     settings = Settings.from_env()
     assert settings.vision_providers[0].api_base == "https://env.test/v1"
+
+
+def _bases(path) -> list[str]:
+    return [
+        p["api_base"]
+        for p in load_config(path).get("providers", [])
+        if isinstance(p, dict)
+    ]
+
+
+def test_update_config_reads_freshest_state_inside_lock(tmp_path) -> None:
+    """A stale snapshot can never clobber a concurrent write.
+
+    Regression for the shared-config 乌龙: two agents on one machine read the
+    store, one saves, the other's stale snapshot used to overwrite the new
+    endpoint. update_config re-reads under the lock, so the mutation always
+    starts from the freshest on-disk state.
+    """
+    path = tmp_path / "config.json"
+    save_config(
+        {
+            "engine": "llm",
+            "providers": [{"api_base": "https://a.test/v1", "api_key": "ka"}],
+        },
+        path,
+    )
+    load_config(path)  # agent's stale snapshot (conceptually taken earlier)
+
+    # another agent lands a new endpoint while the first one is mid-flight
+    save_config(
+        {
+            "engine": "llm",
+            "providers": [
+                {"api_base": "https://a.test/v1", "api_key": "ka"},
+                {"api_base": "https://b.test/v1", "api_key": "kb"},
+            ],
+        },
+        path,
+    )
+
+    def _add(cfg: dict) -> None:
+        assert [p["api_base"] for p in cfg["providers"]] == [
+            "https://a.test/v1",
+            "https://b.test/v1",
+        ]  # fresh inside the lock
+        cfg["providers"].append({"api_base": "https://c.test/v1", "api_key": "kc"})
+
+    update_config(_add, path)
+    assert _bases(path) == [
+        "https://a.test/v1",
+        "https://b.test/v1",
+        "https://c.test/v1",
+    ]
+
+
+def test_update_config_mutator_return_value(tmp_path) -> None:
+    path = tmp_path / "config.json"
+    result = update_config(
+        lambda cfg: len(cfg.setdefault("providers", [])), path
+    )
+    assert result == 0
+
+
+def test_config_lock_timeout_while_held(tmp_path) -> None:
+    """The lock excludes a concurrent writer and reports a busy timeout."""
+    path = tmp_path / "config.json"
+    with config_lock(path, timeout_seconds=5.0):
+        with pytest.raises(RuntimeError, match="config lock .* still held"):
+            with config_lock(path, timeout_seconds=0.2):
+                pass  # pragma: no cover - must not be reached
+
+
+def test_config_lock_released_after_exit(tmp_path) -> None:
+    path = tmp_path / "config.json"
+    with config_lock(path):
+        pass
+    # a second acquisition succeeds after release
+    with config_lock(path, timeout_seconds=1.0):
+        pass

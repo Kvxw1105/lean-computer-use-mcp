@@ -89,6 +89,15 @@ optional LLM multimodal), record/compile/replay, atomic procedural memory.
   navigation, stamp-style provider cards with numerals, floating action
   dock, ink-night / rice-paper-day themes, reduced-motion + focus-visible
   support).
+- Config concurrency (`2026-08-10`): the store is shared by every agent/
+  process on the machine; writes are serialized by a cross-process lock
+  (`~/.lean-cu/config.json.lock`, msvcrt/fcntl, never deleted) and all
+  mutations (CLI add/remove/reorder, panel save) re-read the file under
+  that lock via `update_config`, so a stale snapshot can never clobber
+  endpoints another agent saved. The panel echoes `loaded_at` (file mtime)
+  and merges instead of replacing: endpoints added after the panel loaded
+  are preserved. `config remove` refuses to silently leave zero endpoints
+  (needs `--yes`).
 - Safety: `state_id` gate (missing/expired/non-current -> STALE_STATE,
   zero upstream calls), commit-like one-shot (COMMIT_UNCERTAIN, never auto
   retry), cu_batch max_actions=3, focus required for type/press_key.
@@ -159,6 +168,9 @@ optional LLM multimodal), record/compile/replay, atomic procedural memory.
 - Never commit screenshots, personal data, real accessibility trees, API
   keys, recordings, or metrics (gitignore covers /recordings/, /memory/,
   /metrics/, benchmarks/results/).
+- The config store is shared by all agents/processes on the machine: never
+  write `~/.lean-cu/config.json` with read-then-save; use `update_config`
+  so concurrent writers merge instead of clobbering.
 - Facade never manufactures user confirmation; desktop actions on real apps
   need user awareness (this user pre-authorized demos like overlay show and
   JianYing replay; new destructive/commit actions still ask).

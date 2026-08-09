@@ -314,6 +314,11 @@ def main(argv: list[str] | None = None) -> int:
     config.add_argument("--model", default=None, help="Model name for add")
     config.add_argument("--index", type=int, default=None, help="Provider index")
     config.add_argument("--to", type=int, default=None, help="Target index for reorder")
+    config.add_argument(
+        "--yes",
+        action="store_true",
+        help="Confirm destructive operations (e.g. removing the last endpoint)",
+    )
 
     config_ui = subparsers.add_parser(
         "config-ui",
@@ -683,7 +688,7 @@ def _cmd_config(args: argparse.Namespace) -> int:
         load_config,
         providers_from_config,
         public_provider_view,
-        save_config,
+        update_config,
         ping_endpoint,
     )
 
@@ -718,29 +723,58 @@ def _cmd_config(args: argparse.Namespace) -> int:
             "api_key": args.api_key,
             "model": (args.model or "").strip(),
         }
-        index = args.index if args.index is not None else len(providers)
-        index = max(0, min(index, len(providers)))
-        providers.insert(index, entry)
-        _save_providers(config, providers, config_path)
-        print(f"Added endpoint at index {index} ({providers[index]['api_base']})")
+
+        def _add(cfg: dict) -> int:
+            # mutation runs under the config lock against the freshest state,
+            # so endpoints another agent saved meanwhile are never clobbered
+            endpoints = cfg.setdefault("providers", [])
+            index = args.index if args.index is not None else len(endpoints)
+            index = max(0, min(index, len(endpoints)))
+            endpoints.insert(index, entry)
+            return index
+
+        index = update_config(_add, config_path)
+        print(f"Added endpoint at index {index} ({entry['api_base']})")
         return 0
 
     if args.action == "remove":
-        if args.index is None or not 0 <= args.index < len(providers):
+        if args.index is None:
+            print("config remove requires --index", file=sys.stderr)
+            return 1
+
+        def _remove(cfg: dict):
+            endpoints = cfg.setdefault("providers", [])
+            if not 0 <= args.index < len(endpoints):
+                return "range"
+            if len(endpoints) == 1 and not args.yes:
+                return "last"
+            return endpoints.pop(args.index)
+
+        removed = update_config(_remove, config_path)
+        if removed == "range":
             print("config remove requires --index within range", file=sys.stderr)
             return 1
-        removed = providers.pop(args.index)
-        _save_providers(config, providers, config_path)
+        if removed == "last":
+            print(
+                "refusing to remove the last configured endpoint; "
+                "pass --yes to confirm",
+                file=sys.stderr,
+            )
+            return 1
         print(f"Removed [{args.index}] {removed['api_base']}")
         return 0
 
     if args.action == "reorder":
-        if args.index is None or args.to is None or not 0 <= args.index < len(providers) \
-                or not 0 <= args.to < len(providers):
+        def _reorder(cfg: dict) -> bool:
+            endpoints = cfg.setdefault("providers", [])
+            if not 0 <= args.index < len(endpoints) or not 0 <= args.to < len(endpoints):
+                return False
+            endpoints.insert(args.to, endpoints.pop(args.index))
+            return True
+
+        if not update_config(_reorder, config_path):
             print("config reorder requires --index and --to within range", file=sys.stderr)
             return 1
-        providers.insert(args.to, providers.pop(args.index))
-        _save_providers(config, providers, config_path)
         print(f"Moved [{args.index}] -> [{args.to}]")
         return 0
 
@@ -777,15 +811,6 @@ def _cmd_config(args: argparse.Namespace) -> int:
         return 1 if failed else 0
 
     return 0
-
-
-def _save_providers(
-    config: dict, providers: list[dict], config_path: Path
-) -> None:
-    from lean_computer_use_mcp.config_store import save_config
-
-    config["providers"] = providers
-    save_config(config, config_path)
 
 
 def _cmd_config_ui(args: argparse.Namespace) -> int:
