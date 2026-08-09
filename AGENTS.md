@@ -5,6 +5,7 @@
 - Use `uv sync --all-extras` to install dependencies and `uv run pytest` to run tests.
 - Keep the package importable without a live desktop: the real upstream client and the fake client share one interface.
 - New behavior must include a unit test and, when it changes model-visible output, an update to `docs/PROTOCOL.md`.
+- Version control is routine: commit and push to `main` (single source of truth) as the natural closing step of every completed task — never wait to be asked. Use conventional-commit messages (`fix:`/`feat:`/`docs:`/`test:`) with a body that lists the changes and test results. Verify the push afterwards (`git log --oneline -3`, clean `git status`). Use a branch or tag for risky/experimental work so the previous state is always restorable.
 
 ## Conventions
 
