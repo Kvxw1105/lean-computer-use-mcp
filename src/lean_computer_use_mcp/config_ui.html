@@ -7,9 +7,9 @@
 <style>
 
   /* ============================================================
-     古风器物 · 墨夜山月 / 宣纸晨光
-     墨色为底，朱砂点睛，青瓷为辅，金线作饰
-     标题取楷，正文从简；印章为记，远山为景
+     大胆重构 · 新中式仪表盘
+     立轴导航 + 印章端点卡 + 悬浮操作台
+     空间取留白，比例取对比，材质取纸墨，节奏取起承转合
      ============================================================ */
   /* ---- design tokens: dark (default, 墨夜山月) ---- */
   :root {
@@ -17,22 +17,23 @@
     --jade: #7fa89a; --jade-soft: rgba(127,168,154,.12);
     --gold: #c9a04a; --gold-soft: rgba(201,160,74,.12);
     --bg: #131009;
-    --bg-moon: rgba(236,222,186,.09);
-    --bg-hill-a: rgba(126,104,72,.17);
-    --bg-hill-b: rgba(96,120,108,.14);
-    --card: rgba(250,242,226,.035);
+    --bg-moon: rgba(236,222,186,.10);
+    --bg-moon-core: rgba(244,230,196,.15);
+    --bg-hill-a: rgba(126,104,72,.18);
+    --bg-hill-b: rgba(96,120,108,.15);
+    --card: rgba(250,242,226,.04);
     --card-border: rgba(236,229,214,.10);
-    --card-hover: rgba(250,242,226,.06);
+    --card-hover: rgba(250,242,226,.07);
     --input-bg: rgba(10,8,5,.55); --input-bg-focus: rgba(10,8,5,.82);
     --text: #ece5d6; --muted: #a99f8b; --faint: #7c7261;
     --ok: #9db87e; --ok-soft: rgba(157,184,126,.12); --ok-border: rgba(157,184,126,.35);
     --err: #d9604f; --err-soft: rgba(217,96,79,.13); --err-border: rgba(217,96,79,.35);
     --badge-text: #8fb8a9; --badge-border: rgba(127,168,154,.38);
     --badge-first-text: #f4ecda; --badge-first-border: rgba(207,90,72,.55);
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.24);
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 14px 34px rgba(0,0,0,.26);
     --toast-bg: rgba(24,19,12,.95); --toast-border: rgba(236,229,214,.12); --toast-shadow: 0 6px 24px rgba(0,0,0,.5);
     --btn-bg: rgba(250,242,226,.05); --btn-bg-hover: rgba(250,242,226,.09);
-    --radius-lg: 14px; --radius-md: 10px; --radius-sm: 6px;
+    --radius-lg: 18px; --radius-md: 12px; --radius-sm: 8px;
     --font-display: "KaiTi", "STKaiti", "楷体", serif;
     --font-body: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
     --ease: cubic-bezier(.25,.7,.3,1);
@@ -46,18 +47,19 @@
       --gold: #9a7328; --gold-soft: rgba(154,115,40,.10);
       --bg: #f5efe2;
       --bg-moon: rgba(201,160,74,.10);
-      --bg-hill-a: rgba(120,100,70,.08);
-      --bg-hill-b: rgba(90,110,100,.06);
-      --card: rgba(255,253,246,.75);
+      --bg-moon-core: rgba(180,140,70,.12);
+      --bg-hill-a: rgba(120,100,70,.09);
+      --bg-hill-b: rgba(90,110,100,.07);
+      --card: rgba(255,253,246,.78);
       --card-border: rgba(46,40,32,.11);
-      --card-hover: rgba(255,255,255,.95);
+      --card-hover: rgba(255,255,255,.97);
       --input-bg: rgba(255,253,246,.9); --input-bg-focus: #fffdf6;
       --text: #2e2820; --muted: #6f6655; --faint: #978d79;
       --ok: #5d7d4a; --ok-soft: rgba(93,125,74,.10); --ok-border: rgba(93,125,74,.35);
       --err: #b23e30; --err-soft: rgba(178,62,48,.09); --err-border: rgba(178,62,48,.35);
       --badge-text: #3f6f63; --badge-border: rgba(71,121,108,.35);
       --badge-first-text: #faf3e2; --badge-first-border: rgba(168,58,48,.5);
-      --shadow: 0 1px 2px rgba(46,40,32,.06), 0 6px 20px rgba(46,40,32,.08);
+      --shadow: 0 1px 2px rgba(46,40,32,.06), 0 8px 24px rgba(46,40,32,.09);
       --toast-bg: rgba(255,253,246,.97); --toast-border: rgba(46,40,32,.13); --toast-shadow: 0 6px 22px rgba(46,40,32,.16);
       --btn-bg: rgba(46,40,32,.05); --btn-bg-hover: rgba(46,40,32,.09);
       color-scheme: light;
@@ -70,18 +72,19 @@
     --gold: #9a7328; --gold-soft: rgba(154,115,40,.10);
     --bg: #f5efe2;
     --bg-moon: rgba(201,160,74,.10);
-    --bg-hill-a: rgba(120,100,70,.08);
-    --bg-hill-b: rgba(90,110,100,.06);
-    --card: rgba(255,253,246,.75);
+    --bg-moon-core: rgba(180,140,70,.12);
+    --bg-hill-a: rgba(120,100,70,.09);
+    --bg-hill-b: rgba(90,110,100,.07);
+    --card: rgba(255,253,246,.78);
     --card-border: rgba(46,40,32,.11);
-    --card-hover: rgba(255,255,255,.95);
+    --card-hover: rgba(255,255,255,.97);
     --input-bg: rgba(255,253,246,.9); --input-bg-focus: #fffdf6;
     --text: #2e2820; --muted: #6f6655; --faint: #978d79;
     --ok: #5d7d4a; --ok-soft: rgba(93,125,74,.10); --ok-border: rgba(93,125,74,.35);
     --err: #b23e30; --err-soft: rgba(178,62,48,.09); --err-border: rgba(178,62,48,.35);
     --badge-text: #3f6f63; --badge-border: rgba(71,121,108,.35);
     --badge-first-text: #faf3e2; --badge-first-border: rgba(168,58,48,.5);
-    --shadow: 0 1px 2px rgba(46,40,32,.06), 0 6px 20px rgba(46,40,32,.08);
+    --shadow: 0 1px 2px rgba(46,40,32,.06), 0 8px 24px rgba(46,40,32,.09);
     --toast-bg: rgba(255,253,246,.97); --toast-border: rgba(46,40,32,.13); --toast-shadow: 0 6px 22px rgba(46,40,32,.16);
     --btn-bg: rgba(46,40,32,.05); --btn-bg-hover: rgba(46,40,32,.09);
     color-scheme: light;
@@ -92,19 +95,20 @@
     --jade: #7fa89a; --jade-soft: rgba(127,168,154,.12);
     --gold: #c9a04a; --gold-soft: rgba(201,160,74,.12);
     --bg: #131009;
-    --bg-moon: rgba(236,222,186,.09);
-    --bg-hill-a: rgba(126,104,72,.17);
-    --bg-hill-b: rgba(96,120,108,.14);
-    --card: rgba(250,242,226,.035);
+    --bg-moon: rgba(236,222,186,.10);
+    --bg-moon-core: rgba(244,230,196,.15);
+    --bg-hill-a: rgba(126,104,72,.18);
+    --bg-hill-b: rgba(96,120,108,.15);
+    --card: rgba(250,242,226,.04);
     --card-border: rgba(236,229,214,.10);
-    --card-hover: rgba(250,242,226,.06);
+    --card-hover: rgba(250,242,226,.07);
     --input-bg: rgba(10,8,5,.55); --input-bg-focus: rgba(10,8,5,.82);
     --text: #ece5d6; --muted: #a99f8b; --faint: #7c7261;
     --ok: #9db87e; --ok-soft: rgba(157,184,126,.12); --ok-border: rgba(157,184,126,.35);
     --err: #d9604f; --err-soft: rgba(217,96,79,.13); --err-border: rgba(217,96,79,.35);
     --badge-text: #8fb8a9; --badge-border: rgba(127,168,154,.38);
     --badge-first-text: #f4ecda; --badge-first-border: rgba(207,90,72,.55);
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.24);
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 14px 34px rgba(0,0,0,.26);
     --toast-bg: rgba(24,19,12,.95); --toast-border: rgba(236,229,214,.12); --toast-shadow: 0 6px 24px rgba(0,0,0,.5);
     --btn-bg: rgba(250,242,226,.05); --btn-bg-hover: rgba(250,242,226,.09);
     color-scheme: dark;
@@ -114,7 +118,8 @@
   body {
     min-height: 100vh;
     background:
-      radial-gradient(560px 300px at 80% 6%, var(--bg-moon), transparent 65%),
+      radial-gradient(680px 340px at 82% 3%, var(--bg-moon-core), transparent 58%),
+      radial-gradient(900px 420px at 84% 0%, var(--bg-moon), transparent 62%),
       radial-gradient(ellipse 900px 320px at 28% 108%, var(--bg-hill-a), transparent 70%),
       radial-gradient(ellipse 1150px 360px at 72% 112%, var(--bg-hill-b), transparent 70%),
       var(--bg);
@@ -129,22 +134,29 @@
   :focus-visible { outline: 2px solid var(--jade); outline-offset: 2px; }
   input:focus-visible, select:focus-visible { outline: none; }
 
-  header { padding: 36px 32px 12px; max-width: 900px; margin: 0 auto; }
-  header h1 {
-    margin: 0; font-size: 26px; font-weight: 600; letter-spacing: 3px;
-    font-family: var(--font-display);
-    display: flex; align-items: center; gap: 14px;
-  }
+  /* ---- masthead ---- */
+  .masthead { max-width: 1080px; margin: 0 auto; padding: 44px 40px 20px; animation: rise .5s var(--ease) both; }
+  .masthead-inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+  .brand { display: flex; align-items: center; gap: 20px; }
   .seal {
-    width: 28px; height: 28px; border-radius: 5px; flex: 0 0 auto;
+    width: 44px; height: 44px; border-radius: 9px; flex: 0 0 auto;
     border: 1.5px solid var(--cinnabar); color: var(--cinnabar);
     display: inline-flex; align-items: center; justify-content: center;
-    font-family: var(--font-display); font-size: 16px; line-height: 1;
+    font-family: var(--font-display); font-size: 24px; line-height: 1;
     transform: rotate(-4deg);
     background: linear-gradient(135deg, var(--cinnabar-soft), transparent 75%);
+    box-shadow: 0 4px 18px var(--cinnabar-soft);
   }
-  header p { margin: 10px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.7; max-width: 660px; }
-  .header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .brand h1 { margin: 0; font-size: 30px; font-weight: 600; letter-spacing: 4px; font-family: var(--font-display); }
+  .brand p { margin: 6px 0 0; color: var(--muted); font-size: 13.5px; letter-spacing: .5px; }
+  .masthead-side { display: flex; align-items: center; gap: 10px; }
+  .stat-chip {
+    border: 1px solid var(--card-border); border-radius: 999px;
+    padding: 7px 14px; font-size: 12px; color: var(--muted);
+    background: var(--card); letter-spacing: 1px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-chip b { color: var(--text); font-weight: 650; margin-left: 4px; }
   .theme-btn {
     width: 40px; height: 40px; border-radius: var(--radius-md); padding: 0;
     display: inline-flex; align-items: center; justify-content: center;
@@ -158,59 +170,87 @@
   .theme-btn .icon-sun { display: none; }
   :root[data-theme="light"] .theme-btn .icon-sun { display: block; }
   :root[data-theme="light"] .theme-btn .icon-moon { display: none; }
-  main { max-width: 900px; margin: 0 auto; padding: 16px 32px 48px; }
 
-  .card {
+  /* ---- layout: rail + content ---- */
+  .layout {
+    max-width: 1080px; margin: 0 auto; padding: 10px 40px 30px;
+    display: grid; grid-template-columns: 92px 1fr; gap: 30px; align-items: start;
+  }
+  .rail { position: sticky; top: 28px; display: flex; flex-direction: column; gap: 10px; }
+  .rail-item {
+    writing-mode: vertical-rl;
+    background: transparent; border: none; border-right: 1px solid var(--card-border);
+    border-radius: 0; padding: 16px 8px;
+    font-family: var(--font-display); font-size: 15px; letter-spacing: 8px;
+    color: var(--faint); cursor: pointer; user-select: none;
+    transition: color .3s var(--ease), border-color .3s var(--ease), background .3s var(--ease);
+    animation: rise .5s var(--ease) both;
+  }
+  .rail-item:nth-child(1) { animation-delay: .06s; }
+  .rail-item:nth-child(2) { animation-delay: .12s; }
+  .rail-item:nth-child(3) { animation-delay: .18s; }
+  .rail-item:hover { color: var(--text); border-color: var(--cinnabar); background: var(--card); }
+
+  .content { min-width: 0; }
+  .panel {
     background: var(--card);
     border: 1px solid var(--card-border);
     border-radius: var(--radius-lg);
-    padding: 22px 24px;
-    margin-bottom: 20px;
+    padding: 26px 28px;
+    margin-bottom: 22px;
     backdrop-filter: blur(12px);
     box-shadow: var(--shadow);
+    scroll-margin-top: 24px;
+    animation: rise .5s var(--ease) both;
     transition: background .35s var(--ease), border-color .3s var(--ease), box-shadow .35s var(--ease);
   }
-  .card h2 {
-    margin: 0 0 18px; font-size: 13px; font-weight: 600;
+  .panel h2 {
+    margin: 0 0 20px; font-size: 14px; font-weight: 600;
     color: var(--muted); letter-spacing: 3px;
     font-family: var(--font-display);
     display: flex; align-items: center; gap: 10px;
   }
-  .card h2::before {
-    content: ""; width: 9px; height: 9px; border-radius: 2.5px;
+  .panel h2::before {
+    content: ""; width: 10px; height: 10px; border-radius: 3px;
     background: var(--cinnabar);
     box-shadow: 0 0 0 2px var(--cinnabar-soft);
     flex: 0 0 auto;
   }
+  .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  .panel-head h2 { margin: 0; }
+  .panel-note { font-size: 12px; color: var(--faint); letter-spacing: .5px; }
 
-  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .row + .row { margin-top: 14px; }
-  label { font-size: 12.5px; color: var(--muted); min-width: 64px; letter-spacing: 1px; }
-  input, select {
-    flex: 1; min-width: 200px;
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; }
+
+  /* ---- form fields: label above input ---- */
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 7px; letter-spacing: 1.5px; }
+  .field input, .field select {
+    width: 100%;
     background: var(--input-bg); color: var(--text);
     border: 1px solid var(--card-border); border-radius: var(--radius-sm);
-    padding: 10px 12px; font-size: 14px; outline: none;
+    padding: 11px 13px; font-size: 14px; outline: none;
     transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background .25s var(--ease), color .25s var(--ease);
   }
-  input::placeholder { color: var(--faint); }
-  input:focus, select:focus {
+  .field input::placeholder { color: var(--faint); }
+  .field input:focus, .field select:focus {
     border-color: var(--jade);
     box-shadow: 0 0 0 3px var(--jade-soft);
     background: var(--input-bg-focus);
   }
 
-  /* ---- provider items ---- */
+  /* ---- provider: stamp | form | action column ---- */
+  #providers { display: block; }
   .provider {
+    display: grid; grid-template-columns: 56px 1fr auto; gap: 0 18px; align-items: start;
     border: 1px solid var(--card-border); border-left: 2px solid transparent;
     border-radius: var(--radius-md);
-    padding: 16px 18px; margin-bottom: 12px;
+    padding: 18px; margin-bottom: 14px;
     background: var(--card);
     transition: transform .3s var(--ease), border-color .25s var(--ease), background .25s var(--ease), opacity .3s var(--ease), height .3s var(--ease);
     animation: rise .34s var(--ease) both;
   }
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
-  .provider:hover { border-color: var(--jade); background: var(--card-hover); }
+  .provider:hover { transform: translateY(-2px); border-color: var(--jade); background: var(--card-hover); }
   .provider.first { border-left-color: var(--gold); }
   .provider.removing {
     opacity: 0; transform: translateX(26px) scale(.97);
@@ -220,7 +260,19 @@
                 padding .34s var(--ease), margin .34s var(--ease), border .34s var(--ease);
   }
   .provider.moving { transition: transform .35s var(--ease); }
-  .provider .head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .stamp {
+    width: 50px; height: 50px; border-radius: 11px;
+    border: 1.5px solid var(--jade); color: var(--jade);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-size: 22px; line-height: 1;
+    transform: rotate(-3deg);
+    transition: transform .3s var(--ease), background .3s var(--ease), color .3s var(--ease), border-color .3s var(--ease);
+  }
+  .stamp.primary { background: var(--cinnabar); border-color: var(--cinnabar); color: var(--badge-first-text); box-shadow: 0 4px 16px var(--cinnabar-soft); }
+  .provider:hover .stamp { transform: rotate(0deg) scale(1.06); }
+
+  .body { min-width: 0; }
+  .body .head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .badge {
     background: transparent; color: var(--badge-text);
     border: 1px solid var(--badge-border); border-radius: 4px;
@@ -228,19 +280,33 @@
     font-family: var(--font-display);
     transition: color .25s var(--ease), border-color .25s var(--ease), background .25s var(--ease);
   }
-  .badge.first {
-    background: var(--cinnabar); color: var(--badge-first-text);
-    border: none; box-shadow: 0 2px 10px var(--cinnabar-soft);
-  }
-  .provider .host { font-weight: 650; font-size: 14px; letter-spacing: .2px; }
-  .provider .meta { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
-  .actions { display: flex; gap: 8px; margin-left: auto; }
+  .badge.first { background: var(--cinnabar); color: var(--badge-first-text); border: none; }
+  .body .host { font-weight: 650; font-size: 14px; letter-spacing: .2px; word-break: break-all; }
+  .body .meta { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-top: 14px; }
+  .field.wide { grid-column: 1 / -1; }
+  .test-result { font-size: 12.5px; margin-top: 12px; min-height: 0; animation: rise .3s var(--ease) both; }
+  .test-result.ok { color: var(--ok); }
+  .test-result.err { color: var(--err); }
+  .test-result.testing { color: var(--muted); }
 
-  /* ---- buttons ---- */
+  .actions { display: flex; flex-direction: column; gap: 8px; }
+  .actions button {
+    width: 40px; height: 36px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .actions button.ok { color: var(--ok); border-color: var(--ok-border); }
+  .actions button.ok:hover { background: var(--ok-soft); border-color: var(--ok); }
+  .actions button.danger { color: var(--err); border-color: var(--err-border); }
+  .actions button.danger:hover { background: var(--err-soft); border-color: var(--err); }
+  .actions button.spinning { pointer-events: none; opacity: .75; }
+
+  /* ---- generic buttons ---- */
   button {
     background: var(--btn-bg); color: var(--text);
     border: 1px solid var(--card-border); border-radius: var(--radius-sm);
-    padding: 8px 16px; font-size: 13px; cursor: pointer;
+    padding: 9px 18px; font-size: 13px; cursor: pointer;
     transition: transform .15s var(--ease), background .25s var(--ease), border-color .25s var(--ease), box-shadow .25s var(--ease), opacity .2s var(--ease), color .25s var(--ease);
   }
   button:hover { border-color: var(--jade); background: var(--btn-bg-hover); transform: translateY(-1px); }
@@ -253,11 +319,6 @@
     box-shadow: 0 4px 14px var(--cinnabar-soft);
   }
   button.primary:hover { filter: brightness(1.08); box-shadow: 0 6px 20px var(--cinnabar-soft); }
-  button.danger { color: var(--err); border-color: var(--err-border); }
-  button.danger:hover { background: var(--err-soft); border-color: var(--err); }
-  button.ok { color: var(--ok); border-color: var(--ok-border); }
-  button.ok:hover { background: var(--ok-soft); border-color: var(--ok); }
-  button.spinning { pointer-events: none; opacity: .75; }
   button.spinning::before {
     content: ""; display: inline-block; width: 11px; height: 11px;
     border: 2px solid rgba(255,255,255,.3); border-top-color: currentColor;
@@ -266,11 +327,22 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .add-btn { width: 100%; padding: 12px; border-style: dashed; border-color: var(--card-border); color: var(--muted); background: transparent; }
+  .add-btn { width: 100%; padding: 13px; border-style: dashed; border-color: var(--card-border); color: var(--muted); background: transparent; }
   .add-btn:hover { color: var(--text); border-color: var(--cinnabar); }
 
-  .footer { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .hint { font-size: 12px; color: var(--faint); line-height: 1.7; margin: 14px 0 0; }
+  /* ---- floating action dock ---- */
+  .dock {
+    position: sticky; bottom: 0; z-index: 30;
+    max-width: 1080px; margin: 0 auto 26px;
+    border: 1px solid var(--card-border); border-radius: var(--radius-lg);
+    background: var(--toast-bg); backdrop-filter: blur(14px);
+    box-shadow: var(--toast-shadow);
+    padding: 16px 22px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    animation: rise .5s var(--ease) both; animation-delay: .15s;
+  }
+  .dock .hint { margin: 0; font-size: 12px; color: var(--faint); line-height: 1.7; max-width: 620px; }
+  .dock-actions { display: flex; gap: 10px; flex: 0 0 auto; }
 
   /* ---- toast ---- */
   #toast {
@@ -286,28 +358,42 @@
   #toast.ok { border-color: var(--ok-border); color: var(--ok); }
   #toast.err { border-color: var(--err-border); color: var(--err); }
 
-  .test-result { font-size: 12.5px; margin-top: 10px; min-height: 0; animation: rise .3s var(--ease) both; }
-  .test-result.ok { color: var(--ok); }
-  .test-result.err { color: var(--err); }
-  .test-result.testing { color: var(--muted); }
-
-  /* ---- empty state: 一方朱印 ---- */
+  /* ---- empty state: 一方山印 ---- */
   #empty {
-    text-align: center; padding: 40px 20px 30px; color: var(--muted);
+    text-align: center; padding: 48px 20px 34px; color: var(--muted);
     animation: rise .4s var(--ease) both;
   }
   #empty .orb {
-    width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%;
+    width: 76px; height: 76px; margin: 0 auto 20px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     border: 1px solid var(--card-border);
+    box-shadow: 0 0 0 6px var(--card), var(--shadow);
   }
   #empty .orb svg {
-    width: 46px; height: 46px;
+    width: 52px; height: 52px;
     stroke: var(--cinnabar); fill: none;
-    stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round;
-    opacity: .85;
+    stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round;
+    opacity: .88;
   }
-  #empty p { margin: 0 0 20px; font-size: 13.5px; line-height: 1.8; }
+  #empty p { margin: 0 0 22px; font-size: 13.5px; line-height: 1.8; }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; padding: 10px 20px 30px; }
+    .rail { display: none; }
+    .masthead { padding: 30px 20px 16px; }
+    .chip-engine { display: none; }
+  }
+  @media (max-width: 640px) {
+    .masthead-inner { flex-direction: column; align-items: flex-start; }
+    .masthead-side { width: 100%; justify-content: space-between; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .provider { grid-template-columns: 46px 1fr; }
+    .fields { grid-template-columns: 1fr; }
+    .actions { flex-direction: row; grid-column: 1 / -1; justify-content: flex-end; }
+    .dock { flex-direction: column; align-items: stretch; }
+    .dock-actions { justify-content: flex-end; }
+    .brand h1 { font-size: 25px; letter-spacing: 2px; }
+  }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -320,59 +406,76 @@
 </style>
 </head>
 <body>
-<header>
-  <div class="header-top">
-    <div>
-      <h1><span class="seal" aria-hidden="true">鉴</span>视觉 API 配置</h1>
-      <p>管理用于界面识别的 AI 视觉端点：支持多个渠道、自动故障切换。保存后重启 MCP 服务生效。</p>
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="brand">
+      <span class="seal" aria-hidden="true">鉴</span>
+      <div>
+        <h1>视觉 API 配置</h1>
+        <p>管理界面识别的 AI 视觉端点 · 多渠道自动故障切换</p>
+      </div>
     </div>
-    <button class="theme-btn" id="theme-btn" type="button" aria-label="切换深浅色" aria-pressed="false" title="切换深浅色">
-      <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-      <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
-    </button>
+    <div class="masthead-side">
+      <span class="stat-chip">端点 <b id="stat-count">0</b></span>
+      <span class="stat-chip chip-engine">引擎 <b id="stat-engine">llm</b></span>
+      <button class="theme-btn" id="theme-btn" type="button" aria-label="切换深浅色" aria-pressed="false" title="切换深浅色">
+        <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
+      </button>
+    </div>
   </div>
 </header>
-<main>
-  <div class="card">
-    <h2>全局设置</h2>
-    <div class="row">
-      <label>视觉引擎</label>
-      <select id="engine">
-        <option value="llm">llm（多模态 API，推荐）</option>
-        <option value="winrt_ocr">winrt_ocr（本地 OCR）</option>
-        <option value="rapidocr">rapidocr（本地 OCR）</option>
-        <option value="none">none（关闭）</option>
-      </select>
-    </div>
-    <div class="row">
-      <label>默认模型</label>
-      <input id="default-model" placeholder="例如 gpt-5.6-luna（端点未指定模型时使用）">
-    </div>
-  </div>
+<main class="layout">
+  <aside class="rail" aria-label="页面导航">
+    <button class="rail-item" type="button" data-target="panel-global">全局设置</button>
+    <button class="rail-item" type="button" data-target="panel-providers">端点列表</button>
+    <button class="rail-item" type="button" data-target="panel-dock">保存配置</button>
+  </aside>
+  <div class="content">
+    <section class="panel" id="panel-global">
+      <h2>全局设置</h2>
+      <div class="grid-2">
+        <div class="field">
+          <label for="engine">视觉引擎</label>
+          <select id="engine">
+            <option value="llm">llm（多模态 API，推荐）</option>
+            <option value="winrt_ocr">winrt_ocr（本地 OCR）</option>
+            <option value="rapidocr">rapidocr（本地 OCR）</option>
+            <option value="none">none（关闭）</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="default-model">默认模型</label>
+          <input id="default-model" placeholder="例如 gpt-5.6-luna（端点未指定模型时使用）">
+        </div>
+      </div>
+    </section>
 
-  <div class="card">
-    <h2>端点列表</h2>
-    <div id="providers"></div>
-    <div id="empty" hidden>
-      <div class="orb" aria-hidden="true">
-      <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20"/><path d="M9 33 L20 17 L26 25 L32 13 L41 33 Z"/></svg>
-    </div>
-      <p>还没有配置任何端点。<br>点击下方按钮添加你的第一个视觉渠道。</p>
-      <button id="empty-add" class="primary">+ 添加端点</button>
-    </div>
-    <button id="add" class="add-btn">+ 添加端点</button>
-  </div>
-
-  <div class="card">
-    <div class="footer">
-      <button id="save" class="primary">保存配置</button>
-      <button id="test-all">测试全部</button>
-      <span class="hint" style="margin:0">第一个为优先，失效自动切换下一个</span>
-    </div>
-    <p class="hint">保存位置：用户目录下 .lean-cu/config.json。密钥仅保存在本机，界面只显示掩码。
-    401/403 认证失败冷却 10 分钟，瞬时错误冷却 30 秒，冷却结束后自动恢复首选端点。</p>
+    <section class="panel" id="panel-providers">
+      <div class="panel-head">
+        <h2>端点列表</h2>
+        <span class="panel-note">第一个为优先，失效自动切换下一个</span>
+      </div>
+      <div id="providers"></div>
+      <div id="empty" hidden>
+        <div class="orb" aria-hidden="true">
+          <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20"/><path d="M9 33 L20 17 L26 25 L32 13 L41 33 Z"/></svg>
+        </div>
+        <p>还没有配置任何端点。<br>点击下方按钮添加你的第一个视觉渠道。</p>
+        <button id="empty-add" class="primary">+ 添加端点</button>
+      </div>
+      <button id="add" class="add-btn">+ 添加端点</button>
+    </section>
   </div>
 </main>
+
+<div class="dock" id="panel-dock">
+  <p class="hint">密钥仅保存在本机，界面只显示掩码。401/403 认证失败冷却 10 分钟，瞬时错误冷却 30 秒，冷却结束后自动恢复首选端点。</p>
+  <div class="dock-actions">
+    <button id="test-all">测试全部</button>
+    <button id="save" class="primary">保存配置</button>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -428,14 +531,64 @@ function render() {
   const addBtn = document.getElementById("add");
   empty.hidden = state.providers.length > 0;
   addBtn.hidden = state.providers.length === 0;
+  const numerals = ["壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖", "拾"];
 
   state.providers.forEach((p, i) => {
     const card = el("div", "provider");
     card.dataset.index = i;
+    if (i === 0) card.classList.add("first");
+
+    const stamp = el("div", "stamp" + (i === 0 ? " primary" : ""));
+    stamp.textContent = numerals[i] || String(i + 1);
+
+    const body = el("div", "body");
     const head = el("div", "head");
-    head.appendChild(el("span", "badge" + (i === 0 ? " first" : ""), i === 0 ? "首选" : "备用 " + i));
+    head.appendChild(el("span", "badge" + (i === 0 ? " first" : ""), i === 0 ? "首选" : "备用"));
     head.appendChild(el("span", "host", p.host || p.api_base));
     head.appendChild(el("span", "meta", p.key_masked));
+    body.appendChild(head);
+
+    const fields = el("div", "fields");
+
+    const baseRow = el("div", "field wide");
+    const baseLabel = el("label", "", "接口地址");
+    baseLabel.setAttribute("for", "p-base-" + i);
+    baseRow.appendChild(baseLabel);
+    const baseInput = el("input");
+    baseInput.id = "p-base-" + i;
+    baseInput.value = p.api_base;
+    baseInput.placeholder = "https://example.com/v1";
+    baseInput.oninput = () => { p.api_base = baseInput.value; p.host = ""; };
+    baseRow.appendChild(baseInput);
+    fields.appendChild(baseRow);
+
+    const modelRow = el("div", "field");
+    const modelLabel = el("label", "", "模型");
+    modelLabel.setAttribute("for", "p-model-" + i);
+    modelRow.appendChild(modelLabel);
+    const modelInput = el("input");
+    modelInput.id = "p-model-" + i;
+    modelInput.value = p.model;
+    modelInput.placeholder = "留空使用默认模型";
+    modelInput.oninput = () => { p.model = modelInput.value; };
+    modelRow.appendChild(modelInput);
+    fields.appendChild(modelRow);
+
+    const keyRow = el("div", "field");
+    const keyLabel = el("label", "", "密钥");
+    keyLabel.setAttribute("for", "p-key-" + i);
+    keyRow.appendChild(keyLabel);
+    const keyInput = el("input");
+    keyInput.id = "p-key-" + i;
+    keyInput.type = "password";
+    keyInput.placeholder = "留空保持不变";
+    keyInput.oninput = () => { p.api_key = keyInput.value; };
+    keyRow.appendChild(keyInput);
+    fields.appendChild(keyRow);
+
+    body.appendChild(fields);
+    body.appendChild(el("div", "test-result"));
+
     const actions = el("div", "actions");
     const up = el("button", "", "↑");
     up.title = "设为更优先";
@@ -447,51 +600,19 @@ function render() {
     down.setAttribute("aria-label", "设为更靠后");
     down.disabled = i === state.providers.length - 1;
     down.onclick = () => moveCard(card, i, i + 1);
-    const test = el("button", "ok", "测试");
+    const test = el("button", "ok", "测");
+    test.title = "测试该端点";
+    test.setAttribute("aria-label", "测试该端点");
     test.onclick = () => testEndpoint(i);
-    const del = el("button", "danger", "删除");
+    const del = el("button", "danger", "删");
+    del.title = "删除该端点";
+    del.setAttribute("aria-label", "删除该端点");
     del.onclick = () => removeCard(card, i);
     actions.append(up, down, test, del);
-    head.appendChild(actions);
-    card.appendChild(head);
 
-    const baseRow = el("div", "row");
-    const baseLabel = el("label", "", "接口地址");
-    baseLabel.setAttribute("for", "p-base-" + i);
-    baseRow.appendChild(baseLabel);
-    const baseInput = el("input");
-    baseInput.id = "p-base-" + i;
-    baseInput.value = p.api_base;
-    baseInput.placeholder = "https://example.com/v1";
-    baseInput.oninput = () => { p.api_base = baseInput.value; p.host = ""; };
-    baseRow.appendChild(baseInput);
-    card.appendChild(baseRow);
-
-    const modelRow = el("div", "row");
-    const modelLabel = el("label", "", "模型");
-    modelLabel.setAttribute("for", "p-model-" + i);
-    modelRow.appendChild(modelLabel);
-    const modelInput = el("input");
-    modelInput.id = "p-model-" + i;
-    modelInput.value = p.model;
-    modelInput.placeholder = "留空使用默认模型";
-    modelInput.oninput = () => { p.model = modelInput.value; };
-    modelRow.appendChild(modelInput);
-    card.appendChild(modelRow);
-
-    const keyRow = el("div", "row");
-    const keyLabel = el("label", "", "密钥");
-    keyLabel.setAttribute("for", "p-key-" + i);
-    keyRow.appendChild(keyLabel);
-    const keyInput = el("input");
-    keyInput.id = "p-key-" + i;
-    keyInput.type = "password";
-    keyInput.placeholder = "留空保持不变";
-    keyInput.oninput = () => { p.api_key = keyInput.value; };
-    keyRow.appendChild(keyInput);
-    card.appendChild(keyRow);
-
-    card.appendChild(el("div", "test-result"));
+    card.appendChild(stamp);
+    card.appendChild(body);
+    card.appendChild(actions);
     box.appendChild(card);
   });
 }
@@ -530,6 +651,8 @@ async function load() {
     document.getElementById("engine").value = data.engine;
     document.getElementById("default-model").value = data.model;
     render();
+    document.getElementById("stat-count").textContent = String(data.providers.length);
+    document.getElementById("stat-engine").textContent = data.engine;
   } catch (err) {
     toast(String(err), false);
   }
@@ -617,6 +740,19 @@ document.getElementById("test-all").onclick = testAll;
 document.getElementById("add").onclick = addProvider;
 document.getElementById("empty-add").onclick = addProvider;
 load();
+
+/* ---- masthead: engine chip follows selection ---- */
+document.getElementById("engine").addEventListener("change", (e) => {
+  document.getElementById("stat-engine").textContent = e.target.value;
+});
+
+/* ---- rail: vertical navigation ---- */
+document.querySelectorAll(".rail-item").forEach((item) => {
+  item.addEventListener("click", () => {
+    const target = document.getElementById(item.dataset.target);
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
 </script>
 </body>
 </html>
