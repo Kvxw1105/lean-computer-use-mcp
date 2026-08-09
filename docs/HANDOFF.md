@@ -1,15 +1,15 @@
 # Handoff: lean-computer-use-mcp
 
-> Written 2026-08-09. Read this first, then `docs/DESIGN.md`,
+> Written 2026-08-09, refreshed 2026-08-10. Read this first, then `docs/DESIGN.md`,
 > `docs/PROTOCOL.md`, `docs/MEMORY.md`, `docs/RECORDING.md`,
 > `docs/VISION.md`, `docs/SECURITY.md`, `docs/BENCHMARKS.md`, `AGENTS.md`.
 
 ## Identity
 
 - GitHub (public): https://github.com/Kvxw1105/lean-computer-use-mcp
-- Branch: `main` (single source of truth). Current HEAD: `b7b53c0`.
+- Branch: `main` (single source of truth). Current HEAD: `87912be`.
 - Dev machine: `C:\Users\???\Documents\Codex\2026-08-04\windows-codex-computer-use-windows-codex\lean-computer-use-mcp` (Windows 11, 2880x1800 @ 200% DPI).
-- Tests: `uv sync --all-extras` then `uv run pytest` -> 181 passed, 1 skipped.
+- Tests: `uv sync --all-extras` then `uv run pytest` -> 205 passed (baseline).
 
 ## One-line identity
 
@@ -17,6 +17,30 @@ A low-context, state-safe MCP facade over Open Computer Use
 (`iFurySt/open-codex-computer-use`) so cheap non-multimodal agents (e.g. Luna
 class) can reliably operate Windows desktop GUI, with record/replay and
 procedural memory.
+
+## Onboarding (new machine, no file transfers needed)
+
+Everything needed to build, test, and run lives in this repo. Keys and
+personal data are machine-local by design (never in the repo).
+
+1. `git clone https://github.com/Kvxw1105/lean-computer-use-mcp.git`
+2. `cd lean-computer-use-mcp && uv sync --all-extras`
+3. `uv run pytest` (expect ~205 passed; the real-upstream tests skip if
+   the `open-computer-use` binary is missing - unit tests still pass).
+4. Read this file, then `docs/DESIGN.md`, `docs/PROTOCOL.md`,
+   `docs/MEMORY.md`, `docs/RECORDING.md`, `docs/VISION.md`,
+   `docs/SECURITY.md`, `docs/BENCHMARKS.md`, `AGENTS.md`.
+5. Configure the vision endpoint on THIS machine (keys never leave the
+   machine; there is nothing to download):
+   - GUI: `lean-computer-use config-ui` -> browser panel -> add base URL /
+     key / model (multi-endpoint failover supported) -> save. The panel is a
+     new-Chinese dashboard (ink night / rice-paper day themes).
+   - CLI: `lean-computer-use config --help` (add/remove/reorder/test).
+   - Store: `~/.lean-cu/config.json`; env vars (`LEAN_CU_VISION_*`) act as
+     temporary overrides while set.
+6. Demo without a desktop: `uv run lean-computer-use serve --fake`.
+7. Real desktop runs need Windows + the upstream `open-computer-use`
+   binary + the target app (e.g. JianYingPro) running and foregrounded.
 
 ## Architecture (5 layers)
 
@@ -57,6 +81,14 @@ optional LLM multimodal), record/compile/replay, atomic procedural memory.
   24fps travelling wave (2.5 waves, 0.5Hz, +/-15% alpha); WS_EX_TOPMOST
   must be in create-time ex-style (SetWindowPos topmost silently no-ops on
   this system); per-strip UpdateLayeredWindow destination fixes.
+
+- Config UI: local web panel + `config` CLI + `~/.lean-cu/config.json`
+  store (`Settings` prefers the file, env is an override); multi-endpoint
+  failover is configured through it; the panel UI went through three
+  design passes and is now a new-Chinese dashboard (vertical rail
+  navigation, stamp-style provider cards with numerals, floating action
+  dock, ink-night / rice-paper-day themes, reduced-motion + focus-visible
+  support).
 - Safety: `state_id` gate (missing/expired/non-current -> STALE_STATE,
   zero upstream calls), commit-like one-shot (COMMIT_UNCERTAIN, never auto
   retry), cu_batch max_actions=3, focus required for type/press_key.
