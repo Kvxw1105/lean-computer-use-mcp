@@ -6,52 +6,173 @@
 <title>视觉 API 配置</title>
 <style>
   :root {
-    --blue: #4c6ff7; --purple: #a658f8; --bg: #14161f; --card: #1d2030;
-    --text: #e8e9f0; --muted: #9aa0b5; --ok: #3ecf8e; --err: #ff6b6b; --line: #2a2e44;
+    --blue: #5b7cfa; --blue-soft: rgba(91,124,250,.16);
+    --purple: #a86bff; --purple-soft: rgba(168,107,255,.16);
+    --bg: #0e1017;
+    --card: rgba(255,255,255,.045);
+    --card-border: rgba(255,255,255,.09);
+    --card-hover: rgba(255,255,255,.07);
+    --text: #eceef6; --muted: #9aa1b8; --faint: #6b7188;
+    --ok: #4ade9b; --ok-soft: rgba(74,222,155,.14);
+    --err: #ff7a7a; --err-soft: rgba(255,122,122,.14);
+    --radius: 16px;
+    --ease: cubic-bezier(.22,.8,.32,1);
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; }
-  header { padding: 18px 28px; border-bottom: 1px solid var(--line);
-           background: linear-gradient(90deg, rgba(76,111,247,.25), rgba(166,88,248,.25)); }
-  header h1 { margin: 0; font-size: 20px; }
-  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
-  main { max-width: 860px; margin: 24px auto; padding: 0 20px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-          padding: 18px; margin-bottom: 18px; }
-  .card h2 { margin: 0 0 14px; font-size: 15px; color: var(--muted); font-weight: 600; }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .row + .row { margin-top: 10px; }
-  label { font-size: 12px; color: var(--muted); min-width: 64px; }
-  input, select { flex: 1; min-width: 200px; background: #14161f; color: var(--text);
-                  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
-                  font-size: 13px; }
-  input:focus, select:focus { outline: 1px solid var(--blue); }
-  .provider { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
-              margin-bottom: 12px; background: #191c2b; }
-  .provider .head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .badge { background: rgba(76,111,247,.2); color: #a9baff; border: 1px solid rgba(76,111,247,.4);
-           border-radius: 999px; font-size: 12px; padding: 2px 10px; }
-  .badge.first { background: rgba(166,88,248,.2); color: #d6b3ff; border-color: rgba(166,88,248,.4); }
-  .provider .host { font-weight: 600; font-size: 14px; }
-  .provider .meta { font-size: 12px; color: var(--muted); margin-left: auto; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(900px 420px at 15% -8%, rgba(91,124,250,.16), transparent 60%),
+      radial-gradient(800px 460px at 88% 0%, rgba(168,107,255,.14), transparent 55%),
+      radial-gradient(1000px 600px at 50% 115%, rgba(91,124,250,.07), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header { padding: 30px 32px 14px; max-width: 900px; margin: 0 auto; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: .3px; }
+  header p { margin: 6px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+  main { max-width: 900px; margin: 0 auto; padding: 8px 32px 40px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    margin-bottom: 18px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 12px 40px rgba(0,0,0,.28);
+  }
+  .card h2 {
+    margin: 0 0 16px; font-size: 13px; font-weight: 600;
+    color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card h2::before {
+    content: ""; width: 10px; height: 10px; border-radius: 3px;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    box-shadow: 0 0 12px rgba(130,106,250,.6);
+  }
+
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .row + .row { margin-top: 12px; }
+  label { font-size: 12.5px; color: var(--muted); min-width: 62px; }
+  input, select {
+    flex: 1; min-width: 200px;
+    background: rgba(10,12,18,.72); color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 10px;
+    padding: 9px 12px; font-size: 13.5px; outline: none;
+    transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
+  }
+  input::placeholder { color: var(--faint); }
+  input:focus, select:focus {
+    border-color: rgba(91,124,250,.65);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+    background: rgba(10,12,18,.9);
+  }
+
+  /* ---- provider items ---- */
+  .provider {
+    border: 1px solid var(--card-border); border-radius: 13px;
+    padding: 14px 16px; margin-bottom: 12px;
+    background: rgba(13,15,24,.6);
+    transition: transform .3s var(--ease), border-color .25s, background .25s, opacity .3s var(--ease), height .3s var(--ease);
+    animation: rise .38s var(--ease) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px) scale(.985); } }
+  .provider:hover { border-color: rgba(255,255,255,.18); background: rgba(16,19,30,.75); }
+  .provider.removing {
+    opacity: 0; transform: translateX(26px) scale(.97);
+    height: 0 !important; padding-top: 0; padding-bottom: 0; margin-bottom: 0;
+    border-width: 0; overflow: hidden;
+    transition: opacity .3s var(--ease), transform .3s var(--ease), height .34s var(--ease),
+                padding .34s var(--ease), margin .34s var(--ease), border .34s var(--ease);
+  }
+  .provider.moving { transition: transform .35s var(--ease); }
+  .provider .head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .badge {
+    background: var(--blue-soft); color: #aebcff;
+    border: 1px solid rgba(91,124,250,.38); border-radius: 999px;
+    font-size: 11.5px; font-weight: 600; padding: 3px 11px; letter-spacing: .4px;
+  }
+  .badge.first {
+    background: linear-gradient(120deg, var(--blue-soft), var(--purple-soft));
+    border-color: rgba(150,110,255,.5); color: #d3c1ff;
+    box-shadow: 0 0 14px rgba(130,106,250,.28);
+  }
+  .provider .host { font-weight: 650; font-size: 14px; letter-spacing: .2px; }
+  .provider .meta { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
   .actions { display: flex; gap: 8px; margin-left: auto; }
-  button { background: #262b45; color: var(--text); border: 1px solid var(--line);
-           border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; }
-  button:hover { border-color: var(--blue); }
-  button.primary { background: linear-gradient(90deg, var(--blue), var(--purple));
-                   border: none; font-weight: 600; }
-  button.danger { color: var(--err); border-color: rgba(255,107,107,.4); }
-  button.ok { color: var(--ok); border-color: rgba(62,207,142,.4); }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .footer { display: flex; gap: 12px; align-items: center; }
-  .hint { font-size: 12px; color: var(--muted); line-height: 1.6; }
-  .status { font-size: 13px; min-height: 20px; }
-  .status.ok { color: var(--ok); }
-  .status.err { color: var(--err); }
-  .test-result { font-size: 12px; margin-top: 6px; }
+
+  /* ---- buttons ---- */
+  button {
+    background: rgba(255,255,255,.06); color: var(--text);
+    border: 1px solid var(--card-border); border-radius: 10px;
+    padding: 8px 16px; font-size: 13px; cursor: pointer;
+    transition: transform .16s var(--ease), background .2s, border-color .2s, box-shadow .25s, opacity .2s;
+  }
+  button:hover { border-color: rgba(120,145,255,.5); background: rgba(255,255,255,.1); transform: translateY(-1px); }
+  button:active { transform: translateY(0) scale(.97); }
+  button:disabled { opacity: .38; cursor: not-allowed; transform: none; }
+  button.primary {
+    background: linear-gradient(120deg, var(--blue), var(--purple));
+    border: none; font-weight: 650; color: #fff;
+    box-shadow: 0 6px 22px rgba(110,100,255,.32);
+  }
+  button.primary:hover { box-shadow: 0 8px 28px rgba(110,100,255,.45); filter: brightness(1.06); }
+  button.danger { color: var(--err); border-color: rgba(255,122,122,.35); }
+  button.danger:hover { background: var(--err-soft); border-color: rgba(255,122,122,.6); }
+  button.ok { color: var(--ok); border-color: rgba(74,222,155,.35); }
+  button.ok:hover { background: var(--ok-soft); border-color: rgba(74,222,155,.6); }
+  button.spinning { pointer-events: none; opacity: .75; }
+  button.spinning::before {
+    content: ""; display: inline-block; width: 11px; height: 11px;
+    border: 2px solid rgba(255,255,255,.3); border-top-color: currentColor;
+    border-radius: 50%; margin-right: 6px; vertical-align: -1px;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .add-btn { width: 100%; padding: 11px; border-style: dashed; border-color: rgba(255,255,255,.16); color: var(--muted); background: transparent; }
+  .add-btn:hover { color: var(--text); border-color: rgba(120,145,255,.55); }
+
+  .footer { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .hint { font-size: 12px; color: var(--faint); line-height: 1.7; margin: 14px 0 0; }
+
+  /* ---- toast ---- */
+  #toast {
+    position: fixed; top: 18px; left: 50%; transform: translateX(-50%) translateY(-80px);
+    padding: 11px 20px; border-radius: 999px; font-size: 13px; z-index: 50;
+    background: rgba(20,24,38,.92); border: 1px solid var(--card-border);
+    box-shadow: 0 10px 34px rgba(0,0,0,.5);
+    opacity: 0; pointer-events: none;
+    transition: transform .45s var(--ease), opacity .35s var(--ease);
+    backdrop-filter: blur(8px);
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  #toast.ok { border-color: rgba(74,222,155,.5); color: var(--ok); }
+  #toast.err { border-color: rgba(255,122,122,.5); color: var(--err); }
+
+  .test-result { font-size: 12.5px; margin-top: 8px; min-height: 0; animation: rise .3s var(--ease) both; }
   .test-result.ok { color: var(--ok); }
   .test-result.err { color: var(--err); }
+  .test-result.testing { color: var(--muted); }
+
+  /* ---- empty state ---- */
+  #empty {
+    text-align: center; padding: 34px 20px 26px; color: var(--muted);
+    animation: rise .4s var(--ease) both;
+  }
+  #empty .orb {
+    width: 52px; height: 52px; margin: 0 auto 14px; border-radius: 18px;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    opacity: .85; box-shadow: 0 0 34px rgba(130,106,250,.5);
+    animation: floaty 3.2s ease-in-out infinite;
+  }
+  @keyframes floaty { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-7px) rotate(6deg); } }
+  #empty p { margin: 0 0 18px; font-size: 13.5px; line-height: 1.7; }
 </style>
 </head>
 <body>
@@ -78,26 +199,34 @@
   </div>
 
   <div class="card">
-    <h2>端点列表（第一个为优先，失效自动切换下一个）</h2>
+    <h2>端点列表</h2>
     <div id="providers"></div>
-    <button id="add" class="primary">+ 添加端点</button>
+    <div id="empty" hidden>
+      <div class="orb"></div>
+      <p>还没有配置任何端点。<br>点击下方按钮添加你的第一个视觉渠道。</p>
+      <button id="empty-add" class="primary">+ 添加端点</button>
+    </div>
+    <button id="add" class="add-btn">+ 添加端点</button>
   </div>
 
   <div class="card">
     <div class="footer">
       <button id="save" class="primary">保存配置</button>
       <button id="test-all">测试全部</button>
-      <span class="status" id="status"></span>
+      <span class="hint" style="margin:0">第一个为优先，失效自动切换下一个</span>
     </div>
-    <p class="hint">保存位置：用户目录下 .lean-cu/config.json。密钥仅保存在本机，
-    界面只显示掩码。401/403 认证失败冷却 10 分钟，瞬时错误冷却 30 秒，冷却结束后自动恢复首选端点。</p>
+    <p class="hint">保存位置：用户目录下 .lean-cu/config.json。密钥仅保存在本机，界面只显示掩码。
+    401/403 认证失败冷却 10 分钟，瞬时错误冷却 30 秒，冷却结束后自动恢复首选端点。</p>
   </div>
 </main>
+<div id="toast"></div>
+
 <script>
 const TOKEN = new URLSearchParams(location.search).get("t") || "";
 const api = (path, opts) => fetch(path + "?t=" + encodeURIComponent(TOKEN), opts);
 
 let state = { engine: "llm", model: "", providers: [] };
+let toastTimer = null;
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -106,26 +235,42 @@ function el(tag, cls, text) {
   return node;
 }
 
+function toast(text, ok) {
+  const node = document.getElementById("toast");
+  node.textContent = text;
+  node.className = "show " + (ok ? "ok" : "err");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { node.className = ""; }, 3200);
+}
+
 function render() {
   const box = document.getElementById("providers");
   box.textContent = "";
+  const empty = document.getElementById("empty");
+  const addBtn = document.getElementById("add");
+  empty.hidden = state.providers.length > 0;
+  addBtn.hidden = state.providers.length === 0;
+
   state.providers.forEach((p, i) => {
     const card = el("div", "provider");
+    card.dataset.index = i;
     const head = el("div", "head");
     head.appendChild(el("span", "badge" + (i === 0 ? " first" : ""), i === 0 ? "首选" : "备用 " + i));
     head.appendChild(el("span", "host", p.host || p.api_base));
     head.appendChild(el("span", "meta", p.key_masked));
     const actions = el("div", "actions");
     const up = el("button", "", "↑");
+    up.title = "设为更优先";
     up.disabled = i === 0;
-    up.onclick = () => { [state.providers[i - 1], state.providers[i]] = [state.providers[i], state.providers[i - 1]]; render(); };
+    up.onclick = () => moveCard(card, i, i - 1);
     const down = el("button", "", "↓");
+    down.title = "设为更靠后";
     down.disabled = i === state.providers.length - 1;
-    down.onclick = () => { [state.providers[i + 1], state.providers[i]] = [state.providers[i], state.providers[i + 1]]; render(); };
+    down.onclick = () => moveCard(card, i, i + 1);
     const test = el("button", "ok", "测试");
     test.onclick = () => testEndpoint(i);
     const del = el("button", "danger", "删除");
-    del.onclick = () => { state.providers.splice(i, 1); render(); };
+    del.onclick = () => removeCard(card, i);
     actions.append(up, down, test, del);
     head.appendChild(actions);
     card.appendChild(head);
@@ -157,10 +302,34 @@ function render() {
     keyRow.appendChild(keyInput);
     card.appendChild(keyRow);
 
-    const result = el("div", "test-result");
-    card.appendChild(result);
+    card.appendChild(el("div", "test-result"));
     box.appendChild(card);
   });
+}
+
+/* graceful move: FLIP-animate the two swapped cards, then re-render */
+function moveCard(card, from, to) {
+  if (to < 0 || to >= state.providers.length) return;
+  const cards = Array.from(document.getElementById("providers").children);
+  const a = cards[from], b = cards[to];
+  const aTop = a.offsetTop, bTop = b.offsetTop;
+  [state.providers[to], state.providers[from]] = [state.providers[from], state.providers[to]];
+  a.classList.add("moving"); b.classList.add("moving");
+  a.style.transform = "translateY(" + (bTop - aTop) + "px)";
+  b.style.transform = "translateY(" + (aTop - bTop) + "px)";
+  setTimeout(() => {
+    render();  // full rebuild keeps the input rows and current values
+  }, 360);
+}
+
+/* graceful remove: collapse the card, then drop it from state */
+function removeCard(card, index) {
+  card.classList.add("removing");
+  setTimeout(() => {
+    state.providers.splice(index, 1);
+    render();
+    toast("已删除端点", true);
+  }, 340);
 }
 
 async function load() {
@@ -173,38 +342,34 @@ async function load() {
     document.getElementById("default-model").value = data.model;
     render();
   } catch (err) {
-    setStatus(String(err), false);
+    toast(String(err), false);
   }
 }
 
-function setStatus(text, ok) {
-  const node = document.getElementById("status");
-  node.textContent = text;
-  node.className = "status " + (ok ? "ok" : "err");
-}
-
 async function save() {
+  const btn = document.getElementById("save");
+  btn.disabled = true;
   const body = {
     engine: document.getElementById("engine").value,
     model: document.getElementById("default-model").value,
     providers: state.providers.map(p => ({
-      api_base: p.api_base.trim(),
+      api_base: (p.api_base || "").trim(),
       api_key: (p.api_key || "").trim(),
       model: (p.model || "").trim(),
     })),
   };
   try {
     const res = await api("/api/config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "保存失败");
     await load();
-    setStatus("已保存。重启 MCP 服务后生效。", true);
+    toast("已保存，重启 MCP 服务后生效", true);
   } catch (err) {
-    setStatus(String(err), false);
+    toast(String(err), false);
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -212,16 +377,16 @@ async function testEndpoint(index) {
   const p = state.providers[index];
   const cards = document.querySelectorAll(".provider");
   const result = cards[index].querySelector(".test-result");
-  result.textContent = "测试中…";
-  result.className = "test-result";
+  const btn = cards[index].querySelector(".actions button.ok");
+  result.textContent = "正在测试…";
+  result.className = "test-result testing";
+  btn.classList.add("spinning");
+  btn.disabled = true;
   const body = {
     api_base: (p.api_base || "").trim(),
     api_key: (p.api_key || "").trim(),
     model: ((p.model || "").trim() || document.getElementById("default-model").value.trim()),
   };
-  if (!body.api_key) {
-    // preserve stored key: test with an empty key and let the server use the stored one
-  }
   try {
     const res = await api("/api/test", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -237,6 +402,9 @@ async function testEndpoint(index) {
   } catch (err) {
     result.textContent = "测试失败: " + err;
     result.className = "test-result err";
+  } finally {
+    btn.classList.remove("spinning");
+    btn.disabled = false;
   }
 }
 
@@ -246,12 +414,17 @@ async function testAll() {
   }
 }
 
-document.getElementById("save").onclick = save;
-document.getElementById("test-all").onclick = testAll;
-document.getElementById("add").onclick = () => {
+function addProvider() {
   state.providers.push({ api_base: "", model: "", key_masked: "未设置", api_key: "" });
   render();
-};
+  const inputs = document.querySelectorAll(".provider:last-of-type input");
+  if (inputs.length) inputs[0].focus();
+}
+
+document.getElementById("save").onclick = save;
+document.getElementById("test-all").onclick = testAll;
+document.getElementById("add").onclick = addProvider;
+document.getElementById("empty-add").onclick = addProvider;
 load();
 </script>
 </body>
