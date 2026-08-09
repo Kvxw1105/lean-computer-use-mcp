@@ -797,8 +797,8 @@ def _cmd_config_ui(args: argparse.Namespace) -> int:
 
     config_path = Path(args.config_path) if args.config_path else default_config_path()
     ui = ConfigUI(config_path=config_path, port=args.port)
-    print(f"Vision API config panel: {ui.url}")
-    print("Close this window (Ctrl+C) to stop the panel.")
+    print(f"Vision API config panel: {ui.url}", flush=True)
+    print("Close this window (Ctrl+C) to stop the panel.", flush=True)
     if not args.no_browser:
         threading.Timer(0.6, lambda: webbrowser.open(ui.url)).start()
     ui.serve_forever()
