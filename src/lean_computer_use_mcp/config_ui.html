@@ -5,35 +5,121 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>视觉 API 配置</title>
 <style>
+  /* ---- dark theme (default) ---- */
   :root {
     --blue: #5b7cfa; --blue-soft: rgba(91,124,250,.16);
     --purple: #a86bff; --purple-soft: rgba(168,107,255,.16);
     --bg: #0e1017;
+    --bg-glow-a: rgba(91,124,250,.16); --bg-glow-b: rgba(168,107,255,.14); --bg-glow-c: rgba(91,124,250,.07);
     --card: rgba(255,255,255,.045);
     --card-border: rgba(255,255,255,.09);
     --card-hover: rgba(255,255,255,.07);
+    --input-bg: rgba(10,12,18,.72); --input-bg-focus: rgba(10,12,18,.9);
     --text: #eceef6; --muted: #9aa1b8; --faint: #6b7188;
     --ok: #4ade9b; --ok-soft: rgba(74,222,155,.14);
     --err: #ff7a7a; --err-soft: rgba(255,122,122,.14);
+    --badge-text: #aebcff; --badge-border: rgba(91,124,250,.38);
+    --badge-first-text: #d3c1ff; --badge-first-border: rgba(150,110,255,.5);
+    --shadow: 0 12px 40px rgba(0,0,0,.28);
+    --toast-bg: rgba(20,24,38,.92); --toast-border: rgba(255,255,255,.09); --toast-shadow: 0 10px 34px rgba(0,0,0,.5);
+    --btn-bg: rgba(255,255,255,.06); --btn-bg-hover: rgba(255,255,255,.1);
     --radius: 16px;
     --ease: cubic-bezier(.22,.8,.32,1);
+    color-scheme: dark;
+  }
+  /* follow the system when the user has not chosen manually */
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+      --blue: #4a6af2; --blue-soft: rgba(74,106,242,.12);
+      --purple: #9357e8; --purple-soft: rgba(147,87,232,.12);
+      --bg: #f3f5fb;
+      --bg-glow-a: rgba(74,106,242,.14); --bg-glow-b: rgba(147,87,232,.12); --bg-glow-c: rgba(74,106,242,.06);
+      --card: rgba(255,255,255,.72);
+      --card-border: rgba(23,27,46,.10);
+      --card-hover: rgba(255,255,255,.92);
+      --input-bg: rgba(255,255,255,.85); --input-bg-focus: #ffffff;
+      --text: #22263a; --muted: #5c6280; --faint: #8a90a8;
+      --ok: #179a63; --ok-soft: rgba(23,154,99,.12);
+      --err: #d64545; --err-soft: rgba(214,69,69,.10);
+      --badge-text: #3f5ae0; --badge-border: rgba(74,106,242,.35);
+      --badge-first-text: #7a4fd6; --badge-first-border: rgba(147,87,232,.45);
+      --shadow: 0 12px 36px rgba(30,36,70,.10);
+      --toast-bg: rgba(255,255,255,.94); --toast-border: rgba(23,27,46,.12); --toast-shadow: 0 10px 30px rgba(30,36,70,.16);
+      --btn-bg: rgba(23,27,46,.05); --btn-bg-hover: rgba(23,27,46,.09);
+      color-scheme: light;
+    }
+  }
+  /* manual light choice */
+  :root[data-theme="light"] {
+    --blue: #4a6af2; --blue-soft: rgba(74,106,242,.12);
+    --purple: #9357e8; --purple-soft: rgba(147,87,232,.12);
+    --bg: #f3f5fb;
+    --bg-glow-a: rgba(74,106,242,.14); --bg-glow-b: rgba(147,87,232,.12); --bg-glow-c: rgba(74,106,242,.06);
+    --card: rgba(255,255,255,.72);
+    --card-border: rgba(23,27,46,.10);
+    --card-hover: rgba(255,255,255,.92);
+    --input-bg: rgba(255,255,255,.85); --input-bg-focus: #ffffff;
+    --text: #22263a; --muted: #5c6280; --faint: #8a90a8;
+    --ok: #179a63; --ok-soft: rgba(23,154,99,.12);
+    --err: #d64545; --err-soft: rgba(214,69,69,.10);
+    --badge-text: #3f5ae0; --badge-border: rgba(74,106,242,.35);
+    --badge-first-text: #7a4fd6; --badge-first-border: rgba(147,87,232,.45);
+    --shadow: 0 12px 36px rgba(30,36,70,.10);
+    --toast-bg: rgba(255,255,255,.94); --toast-border: rgba(23,27,46,.12); --toast-shadow: 0 10px 30px rgba(30,36,70,.16);
+    --btn-bg: rgba(23,27,46,.05); --btn-bg-hover: rgba(23,27,46,.09);
+    color-scheme: light;
+  }
+  /* manual dark choice (same values as the default) */
+  :root[data-theme="dark"] {
+    --blue: #5b7cfa; --blue-soft: rgba(91,124,250,.16);
+    --purple: #a86bff; --purple-soft: rgba(168,107,255,.16);
+    --bg: #0e1017;
+    --bg-glow-a: rgba(91,124,250,.16); --bg-glow-b: rgba(168,107,255,.14); --bg-glow-c: rgba(91,124,250,.07);
+    --card: rgba(255,255,255,.045);
+    --card-border: rgba(255,255,255,.09);
+    --card-hover: rgba(255,255,255,.07);
+    --input-bg: rgba(10,12,18,.72); --input-bg-focus: rgba(10,12,18,.9);
+    --text: #eceef6; --muted: #9aa1b8; --faint: #6b7188;
+    --ok: #4ade9b; --ok-soft: rgba(74,222,155,.14);
+    --err: #ff7a7a; --err-soft: rgba(255,122,122,.14);
+    --badge-text: #aebcff; --badge-border: rgba(91,124,250,.38);
+    --badge-first-text: #d3c1ff; --badge-first-border: rgba(150,110,255,.5);
+    --shadow: 0 12px 40px rgba(0,0,0,.28);
+    --toast-bg: rgba(20,24,38,.92); --toast-border: rgba(255,255,255,.09); --toast-shadow: 0 10px 34px rgba(0,0,0,.5);
+    --btn-bg: rgba(255,255,255,.06); --btn-bg-hover: rgba(255,255,255,.1);
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
   body {
     min-height: 100vh;
     background:
-      radial-gradient(900px 420px at 15% -8%, rgba(91,124,250,.16), transparent 60%),
-      radial-gradient(800px 460px at 88% 0%, rgba(168,107,255,.14), transparent 55%),
-      radial-gradient(1000px 600px at 50% 115%, rgba(91,124,250,.07), transparent 60%),
+      radial-gradient(900px 420px at 15% -8%, var(--bg-glow-a), transparent 60%),
+      radial-gradient(800px 460px at 88% 0%, var(--bg-glow-b), transparent 55%),
+      radial-gradient(1000px 600px at 50% 115%, var(--bg-glow-c), transparent 60%),
       var(--bg);
     color: var(--text);
     font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    transition: background .4s var(--ease), color .3s var(--ease);
   }
   header { padding: 30px 32px 14px; max-width: 900px; margin: 0 auto; }
   header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: .3px; }
   header p { margin: 6px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+  .header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .theme-btn {
+    width: 40px; height: 40px; border-radius: 12px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex: 0 0 auto;
+    transition: transform .3s var(--ease), background .25s, border-color .25s;
+  }
+  .theme-btn:hover { transform: translateY(-1px) rotate(-8deg); }
+  .theme-btn svg { width: 18px; height: 18px; stroke: var(--muted); fill: none;
+                   stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .theme-btn:hover svg { stroke: var(--text); }
+  .theme-btn .icon-sun { display: none; }
+  :root[data-theme="light"] .theme-btn .icon-sun { display: block; }
+  :root[data-theme="light"] .theme-btn .icon-moon { display: none; }
   main { max-width: 900px; margin: 0 auto; padding: 8px 32px 40px; }
 
   .card {
@@ -43,7 +129,8 @@
     padding: 20px 22px;
     margin-bottom: 18px;
     backdrop-filter: blur(10px);
-    box-shadow: 0 12px 40px rgba(0,0,0,.28);
+    box-shadow: var(--shadow);
+    transition: background .35s var(--ease), border-color .3s var(--ease), box-shadow .35s var(--ease);
   }
   .card h2 {
     margin: 0 0 16px; font-size: 13px; font-weight: 600;
@@ -61,28 +148,28 @@
   label { font-size: 12.5px; color: var(--muted); min-width: 62px; }
   input, select {
     flex: 1; min-width: 200px;
-    background: rgba(10,12,18,.72); color: var(--text);
+    background: var(--input-bg); color: var(--text);
     border: 1px solid var(--card-border); border-radius: 10px;
     padding: 9px 12px; font-size: 13.5px; outline: none;
-    transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
+    transition: border-color .2s var(--ease), box-shadow .2s var(--ease), background .25s var(--ease), color .25s var(--ease);
   }
   input::placeholder { color: var(--faint); }
   input:focus, select:focus {
     border-color: rgba(91,124,250,.65);
     box-shadow: 0 0 0 3px var(--blue-soft);
-    background: rgba(10,12,18,.9);
+    background: var(--input-bg-focus);
   }
 
   /* ---- provider items ---- */
   .provider {
     border: 1px solid var(--card-border); border-radius: 13px;
     padding: 14px 16px; margin-bottom: 12px;
-    background: rgba(13,15,24,.6);
+    background: var(--card);
     transition: transform .3s var(--ease), border-color .25s, background .25s, opacity .3s var(--ease), height .3s var(--ease);
     animation: rise .38s var(--ease) both;
   }
   @keyframes rise { from { opacity: 0; transform: translateY(10px) scale(.985); } }
-  .provider:hover { border-color: rgba(255,255,255,.18); background: rgba(16,19,30,.75); }
+  .provider:hover { border-color: rgba(255,255,255,.18); background: var(--card-hover); }
   .provider.removing {
     opacity: 0; transform: translateX(26px) scale(.97);
     height: 0 !important; padding-top: 0; padding-bottom: 0; margin-bottom: 0;
@@ -93,13 +180,14 @@
   .provider.moving { transition: transform .35s var(--ease); }
   .provider .head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .badge {
-    background: var(--blue-soft); color: #aebcff;
-    border: 1px solid rgba(91,124,250,.38); border-radius: 999px;
+    background: var(--blue-soft); color: var(--badge-text);
+    border: 1px solid var(--badge-border); border-radius: 999px;
     font-size: 11.5px; font-weight: 600; padding: 3px 11px; letter-spacing: .4px;
+    transition: color .25s var(--ease), border-color .25s var(--ease);
   }
   .badge.first {
     background: linear-gradient(120deg, var(--blue-soft), var(--purple-soft));
-    border-color: rgba(150,110,255,.5); color: #d3c1ff;
+    border-color: var(--badge-first-border); color: var(--badge-first-text);
     box-shadow: 0 0 14px rgba(130,106,250,.28);
   }
   .provider .host { font-weight: 650; font-size: 14px; letter-spacing: .2px; }
@@ -108,12 +196,12 @@
 
   /* ---- buttons ---- */
   button {
-    background: rgba(255,255,255,.06); color: var(--text);
+    background: var(--btn-bg); color: var(--text);
     border: 1px solid var(--card-border); border-radius: 10px;
     padding: 8px 16px; font-size: 13px; cursor: pointer;
-    transition: transform .16s var(--ease), background .2s, border-color .2s, box-shadow .25s, opacity .2s;
+    transition: transform .16s var(--ease), background .25s, border-color .25s, box-shadow .25s, opacity .2s, color .25s;
   }
-  button:hover { border-color: rgba(120,145,255,.5); background: rgba(255,255,255,.1); transform: translateY(-1px); }
+  button:hover { border-color: rgba(120,145,255,.5); background: var(--btn-bg-hover); transform: translateY(-1px); }
   button:active { transform: translateY(0) scale(.97); }
   button:disabled { opacity: .38; cursor: not-allowed; transform: none; }
   button.primary {
@@ -135,7 +223,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .add-btn { width: 100%; padding: 11px; border-style: dashed; border-color: rgba(255,255,255,.16); color: var(--muted); background: transparent; }
+  .add-btn { width: 100%; padding: 11px; border-style: dashed; border-color: var(--card-border); color: var(--muted); background: transparent; }
   .add-btn:hover { color: var(--text); border-color: rgba(120,145,255,.55); }
 
   .footer { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
@@ -145,10 +233,10 @@
   #toast {
     position: fixed; top: 18px; left: 50%; transform: translateX(-50%) translateY(-80px);
     padding: 11px 20px; border-radius: 999px; font-size: 13px; z-index: 50;
-    background: rgba(20,24,38,.92); border: 1px solid var(--card-border);
-    box-shadow: 0 10px 34px rgba(0,0,0,.5);
+    background: var(--toast-bg); border: 1px solid var(--toast-border);
+    box-shadow: var(--toast-shadow);
     opacity: 0; pointer-events: none;
-    transition: transform .45s var(--ease), opacity .35s var(--ease);
+    transition: transform .45s var(--ease), opacity .35s var(--ease), background .35s var(--ease), border-color .3s var(--ease);
     backdrop-filter: blur(8px);
   }
   #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
@@ -176,9 +264,17 @@
 </style>
 </head>
 <body>
-<header>
-  <h1>视觉 API 配置</h1>
-  <p>管理用于界面识别的 AI 视觉端点：支持多个渠道、自动故障切换。保存后重启 MCP 服务生效。</p>
+﻿<header>
+  <div class="header-top">
+    <div>
+      <h1>视觉 API 配置</h1>
+      <p>管理用于界面识别的 AI 视觉端点：支持多个渠道、自动故障切换。保存后重启 MCP 服务生效。</p>
+    </div>
+    <button class="theme-btn" id="theme-btn" title="切换深浅色">
+      <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M18.7 5.3L17 7M7 17l-1.7 1.7"/></svg>
+    </button>
+  </div>
 </header>
 <main>
   <div class="card">
@@ -224,6 +320,28 @@
 <script>
 const TOKEN = new URLSearchParams(location.search).get("t") || "";
 const api = (path, opts) => fetch(path + "?t=" + encodeURIComponent(TOKEN), opts);
+
+/* ---- theme: follow the system, manual override saved locally ---- */
+const THEME_KEY = "lean-cu-theme";
+function systemTheme() {
+  return matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+function currentTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  return saved === "light" || saved === "dark" ? saved : systemTheme();
+}
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+}
+document.getElementById("theme-btn").addEventListener("click", () => {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+});
+applyTheme(currentTheme());
+matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
+  if (!localStorage.getItem(THEME_KEY)) applyTheme(systemTheme());
+});
 
 let state = { engine: "llm", model: "", providers: [] };
 let toastTimer = null;
