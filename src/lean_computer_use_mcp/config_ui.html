@@ -1,0 +1,258 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>视觉 API 配置</title>
+<style>
+  :root {
+    --blue: #4c6ff7; --purple: #a658f8; --bg: #14161f; --card: #1d2030;
+    --text: #e8e9f0; --muted: #9aa0b5; --ok: #3ecf8e; --err: #ff6b6b; --line: #2a2e44;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; }
+  header { padding: 18px 28px; border-bottom: 1px solid var(--line);
+           background: linear-gradient(90deg, rgba(76,111,247,.25), rgba(166,88,248,.25)); }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  main { max-width: 860px; margin: 24px auto; padding: 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+          padding: 18px; margin-bottom: 18px; }
+  .card h2 { margin: 0 0 14px; font-size: 15px; color: var(--muted); font-weight: 600; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row + .row { margin-top: 10px; }
+  label { font-size: 12px; color: var(--muted); min-width: 64px; }
+  input, select { flex: 1; min-width: 200px; background: #14161f; color: var(--text);
+                  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+                  font-size: 13px; }
+  input:focus, select:focus { outline: 1px solid var(--blue); }
+  .provider { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+              margin-bottom: 12px; background: #191c2b; }
+  .provider .head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .badge { background: rgba(76,111,247,.2); color: #a9baff; border: 1px solid rgba(76,111,247,.4);
+           border-radius: 999px; font-size: 12px; padding: 2px 10px; }
+  .badge.first { background: rgba(166,88,248,.2); color: #d6b3ff; border-color: rgba(166,88,248,.4); }
+  .provider .host { font-weight: 600; font-size: 14px; }
+  .provider .meta { font-size: 12px; color: var(--muted); margin-left: auto; }
+  .actions { display: flex; gap: 8px; margin-left: auto; }
+  button { background: #262b45; color: var(--text); border: 1px solid var(--line);
+           border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; }
+  button:hover { border-color: var(--blue); }
+  button.primary { background: linear-gradient(90deg, var(--blue), var(--purple));
+                   border: none; font-weight: 600; }
+  button.danger { color: var(--err); border-color: rgba(255,107,107,.4); }
+  button.ok { color: var(--ok); border-color: rgba(62,207,142,.4); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .footer { display: flex; gap: 12px; align-items: center; }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .status { font-size: 13px; min-height: 20px; }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--err); }
+  .test-result { font-size: 12px; margin-top: 6px; }
+  .test-result.ok { color: var(--ok); }
+  .test-result.err { color: var(--err); }
+</style>
+</head>
+<body>
+<header>
+  <h1>视觉 API 配置</h1>
+  <p>管理用于界面识别的 AI 视觉端点：支持多个渠道、自动故障切换。保存后重启 MCP 服务生效。</p>
+</header>
+<main>
+  <div class="card">
+    <h2>全局设置</h2>
+    <div class="row">
+      <label>视觉引擎</label>
+      <select id="engine">
+        <option value="llm">llm（多模态 API，推荐）</option>
+        <option value="winrt_ocr">winrt_ocr（本地 OCR）</option>
+        <option value="rapidocr">rapidocr（本地 OCR）</option>
+        <option value="none">none（关闭）</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>默认模型</label>
+      <input id="default-model" placeholder="例如 gpt-5.6-luna（端点未指定模型时使用）">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>端点列表（第一个为优先，失效自动切换下一个）</h2>
+    <div id="providers"></div>
+    <button id="add" class="primary">+ 添加端点</button>
+  </div>
+
+  <div class="card">
+    <div class="footer">
+      <button id="save" class="primary">保存配置</button>
+      <button id="test-all">测试全部</button>
+      <span class="status" id="status"></span>
+    </div>
+    <p class="hint">保存位置：用户目录下 .lean-cu/config.json。密钥仅保存在本机，
+    界面只显示掩码。401/403 认证失败冷却 10 分钟，瞬时错误冷却 30 秒，冷却结束后自动恢复首选端点。</p>
+  </div>
+</main>
+<script>
+const TOKEN = new URLSearchParams(location.search).get("t") || "";
+const api = (path, opts) => fetch(path + "?t=" + encodeURIComponent(TOKEN), opts);
+
+let state = { engine: "llm", model: "", providers: [] };
+
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function render() {
+  const box = document.getElementById("providers");
+  box.textContent = "";
+  state.providers.forEach((p, i) => {
+    const card = el("div", "provider");
+    const head = el("div", "head");
+    head.appendChild(el("span", "badge" + (i === 0 ? " first" : ""), i === 0 ? "首选" : "备用 " + i));
+    head.appendChild(el("span", "host", p.host || p.api_base));
+    head.appendChild(el("span", "meta", p.key_masked));
+    const actions = el("div", "actions");
+    const up = el("button", "", "↑");
+    up.disabled = i === 0;
+    up.onclick = () => { [state.providers[i - 1], state.providers[i]] = [state.providers[i], state.providers[i - 1]]; render(); };
+    const down = el("button", "", "↓");
+    down.disabled = i === state.providers.length - 1;
+    down.onclick = () => { [state.providers[i + 1], state.providers[i]] = [state.providers[i], state.providers[i + 1]]; render(); };
+    const test = el("button", "ok", "测试");
+    test.onclick = () => testEndpoint(i);
+    const del = el("button", "danger", "删除");
+    del.onclick = () => { state.providers.splice(i, 1); render(); };
+    actions.append(up, down, test, del);
+    head.appendChild(actions);
+    card.appendChild(head);
+
+    const baseRow = el("div", "row");
+    baseRow.appendChild(el("label", "", "接口地址"));
+    const baseInput = el("input");
+    baseInput.value = p.api_base;
+    baseInput.placeholder = "https://example.com/v1";
+    baseInput.oninput = () => { p.api_base = baseInput.value; p.host = ""; };
+    baseRow.appendChild(baseInput);
+    card.appendChild(baseRow);
+
+    const modelRow = el("div", "row");
+    modelRow.appendChild(el("label", "", "模型"));
+    const modelInput = el("input");
+    modelInput.value = p.model;
+    modelInput.placeholder = "留空使用默认模型";
+    modelInput.oninput = () => { p.model = modelInput.value; };
+    modelRow.appendChild(modelInput);
+    card.appendChild(modelRow);
+
+    const keyRow = el("div", "row");
+    keyRow.appendChild(el("label", "", "密钥"));
+    const keyInput = el("input");
+    keyInput.type = "password";
+    keyInput.placeholder = "留空保持不变";
+    keyInput.oninput = () => { p.api_key = keyInput.value; };
+    keyRow.appendChild(keyInput);
+    card.appendChild(keyRow);
+
+    const result = el("div", "test-result");
+    card.appendChild(result);
+    box.appendChild(card);
+  });
+}
+
+async function load() {
+  try {
+    const res = await api("/api/config");
+    if (!res.ok) throw new Error("加载失败: " + res.status);
+    const data = await res.json();
+    state = { engine: data.engine, model: data.model, providers: data.providers.map(p => ({ ...p, api_key: "" })) };
+    document.getElementById("engine").value = data.engine;
+    document.getElementById("default-model").value = data.model;
+    render();
+  } catch (err) {
+    setStatus(String(err), false);
+  }
+}
+
+function setStatus(text, ok) {
+  const node = document.getElementById("status");
+  node.textContent = text;
+  node.className = "status " + (ok ? "ok" : "err");
+}
+
+async function save() {
+  const body = {
+    engine: document.getElementById("engine").value,
+    model: document.getElementById("default-model").value,
+    providers: state.providers.map(p => ({
+      api_base: p.api_base.trim(),
+      api_key: (p.api_key || "").trim(),
+      model: (p.model || "").trim(),
+    })),
+  };
+  try {
+    const res = await api("/api/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "保存失败");
+    await load();
+    setStatus("已保存。重启 MCP 服务后生效。", true);
+  } catch (err) {
+    setStatus(String(err), false);
+  }
+}
+
+async function testEndpoint(index) {
+  const p = state.providers[index];
+  const cards = document.querySelectorAll(".provider");
+  const result = cards[index].querySelector(".test-result");
+  result.textContent = "测试中…";
+  result.className = "test-result";
+  const body = {
+    api_base: (p.api_base || "").trim(),
+    api_key: (p.api_key || "").trim(),
+    model: ((p.model || "").trim() || document.getElementById("default-model").value.trim()),
+  };
+  if (!body.api_key) {
+    // preserve stored key: test with an empty key and let the server use the stored one
+  }
+  try {
+    const res = await api("/api/test", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      result.textContent = "可用 · HTTP " + data.status + " · " + Math.round(data.latency_ms) + "ms";
+      result.className = "test-result ok";
+    } else {
+      result.textContent = "失败 · " + (data.error || "") + (data.status ? " · HTTP " + data.status : "");
+      result.className = "test-result err";
+    }
+  } catch (err) {
+    result.textContent = "测试失败: " + err;
+    result.className = "test-result err";
+  }
+}
+
+async function testAll() {
+  for (let i = 0; i < state.providers.length; i++) {
+    await testEndpoint(i);
+  }
+}
+
+document.getElementById("save").onclick = save;
+document.getElementById("test-all").onclick = testAll;
+document.getElementById("add").onclick = () => {
+  state.providers.push({ api_base: "", model: "", key_masked: "未设置", api_key: "" });
+  render();
+};
+load();
+</script>
+</body>
+</html>

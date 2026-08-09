@@ -83,6 +83,21 @@ benchmarks/      benchmark scenario definitions
 config/          example agent configuration
 ```
 
+## Visual API configuration (GUI)
+
+Non-technical users can manage vision endpoints (base URL / key / model,
+multi-channel failover) in a browser:
+
+```sh
+lean-computer-use config-ui
+```
+
+It opens a local Chinese panel at `http://127.0.0.1:<port>/?t=<token>`: add,
+remove, reorder and test endpoints, then save to `~/.lean-cu/config.json`
+(keys are masked, stored only on your machine). A terminal equivalent exists:
+`lean-computer-use config list|add|remove|reorder|test`. Environment variables
+(`LEAN_CU_VISION_PROVIDERS` etc.) remain a temporary override when set.
+
 ## Development
 
 ```sh

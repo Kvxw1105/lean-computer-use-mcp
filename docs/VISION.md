@@ -165,6 +165,10 @@ image bytes, node count. Vision additions must also assert `vision_*` counters.
 - No personal data or real accessibility trees are committed; fixtures stay sanitized.
 - Provider failover never logs API keys: pool log lines only carry the endpoint
   host and the failure class (see `vision/pool.py`).
+- Endpoints are managed in `~/.lean-cu/config.json` (also via the web panel
+  `lean-computer-use config-ui` or `lean-computer-use config` CLI); keys are
+  stored plaintext in the user profile, the web UI only echoes masked keys and
+  requires a per-session token.
 
 ### Multi-endpoint failover (`LEAN_CU_VISION_PROVIDERS`)
 
@@ -217,6 +221,11 @@ Failover rules (implemented in `vision/pool.py`, unit-tested):
   via `LEAN_CU_VISION_ENGINE=llm` plus `LEAN_CU_VISION_API_BASE` / `_API_KEY` /
   `_MODEL`. Local OCR remains the default first tier; `llm` engages when OCR alone
   cannot satisfy the intent (icons, semantics).
+- **V3.2 (done)**: local web configuration panel (`lean-computer-use
+  config-ui`) plus a `config` CLI (list/add/remove/reorder/test) over a
+  `~/.lean-cu/config.json` store; `Settings` prefers the file, environment
+  variables stay a temporary override; keys masked, per-session token,
+  127.0.0.1 only.
 - **V3.1 (done)**: multi-endpoint failover for `engine="llm"` -
   `LEAN_CU_VISION_PROVIDERS` JSON list, per-provider base/key/model, cooldown
   rotation (auth 10 min / transient 30 s), automatic return to the preferred

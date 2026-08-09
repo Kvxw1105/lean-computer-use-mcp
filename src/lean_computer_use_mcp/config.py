@@ -5,6 +5,10 @@ import logging
 import os
 from dataclasses import dataclass
 
+from lean_computer_use_mcp.config_store import (
+    load_config,
+    providers_from_config,
+)
 from lean_computer_use_mcp.vision.base import VisionProvider
 
 logger = logging.getLogger(__name__)
@@ -40,11 +44,11 @@ class Settings:
             state_max_entries=int(os.getenv("LEAN_CU_STATE_MAX_ENTRIES", "64")),
             metrics_path=os.getenv("LEAN_CU_METRICS_PATH"),
             image_cache_root=os.getenv("LEAN_CU_IMAGE_CACHE"),
-            vision_engine=os.getenv("LEAN_CU_VISION_ENGINE", "none"),
+            vision_engine=os.getenv("LEAN_CU_VISION_ENGINE") or cls._file_engine(),
             vision_api_base=os.getenv("LEAN_CU_VISION_API_BASE"),
             vision_api_key=os.getenv("LEAN_CU_VISION_API_KEY"),
-            vision_model=os.getenv("LEAN_CU_VISION_MODEL"),
-            vision_providers=cls._parse_vision_providers(),
+            vision_model=os.getenv("LEAN_CU_VISION_MODEL") or cls._file_model(),
+            vision_providers=cls._vision_providers(),
             vision_upgrade_engine=os.getenv("LEAN_CU_VISION_UPGRADE_ENGINE", "none"),
             vision_upgrade_min_elements=int(os.getenv("LEAN_CU_VISION_UPGRADE_MIN_ELEMENTS", "3")),
             vision_upgrade_cooldown_seconds=float(os.getenv("LEAN_CU_VISION_UPGRADE_COOLDOWN_SECONDS", "60")),
@@ -52,8 +56,17 @@ class Settings:
             in {"1", "true", "yes", "on"},
         )
 
+    @classmethod
+    def _vision_providers(cls) -> tuple[VisionProvider, ...]:
+        """Effective provider list: env JSON wins (temporary override),
+        else the local config file managed by the GUI/CLI, else empty."""
+        from_env = cls._parse_env_providers()
+        if from_env:
+            return from_env
+        return providers_from_config(load_config())
+
     @staticmethod
-    def _parse_vision_providers() -> tuple[VisionProvider, ...]:
+    def _parse_env_providers() -> tuple[VisionProvider, ...]:
         """Parse LEAN_CU_VISION_PROVIDERS as a JSON list of endpoints.
 
         Shape: [{"api_base": "https://...", "api_key": "...", "model": "..."}]
@@ -92,3 +105,22 @@ class Settings:
         if not providers:
             logger.warning("LEAN_CU_VISION_PROVIDERS produced no usable entries")
         return tuple(providers)
+
+    @staticmethod
+    def _file_engine() -> str:
+        from lean_computer_use_mcp.config_store import default_config_path
+
+        if not default_config_path().exists():
+            return "none"  # legacy default when nothing is configured
+        config = load_config()
+        return str(config.get("engine") or "none")
+
+    @staticmethod
+    def _file_model() -> str | None:
+        from lean_computer_use_mcp.config_store import default_config_path
+
+        if not default_config_path().exists():
+            return None
+        config = load_config()
+        model = str(config.get("model") or "")
+        return model or None

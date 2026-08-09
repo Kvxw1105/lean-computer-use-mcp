@@ -296,6 +296,41 @@ def main(argv: list[str] | None = None) -> int:
         "--model", default=None, help="Model name (default: LEAN_CU_VISION_MODEL)"
     )
 
+    config = subparsers.add_parser(
+        "config", help="Manage vision API endpoints (GUI-friendly local store)"
+    )
+    config.add_argument(
+        "action",
+        choices=["list", "add", "remove", "reorder", "test"],
+        help="Operation",
+    )
+    config.add_argument(
+        "--config-path", default=None, help="Config file (default: ~/.lean-cu/config.json)"
+    )
+    config.add_argument(
+        "--api-base", default=None, help="Endpoint base URL for add/test"
+    )
+    config.add_argument("--api-key", default=None, help="API key for add/test")
+    config.add_argument("--model", default=None, help="Model name for add")
+    config.add_argument("--index", type=int, default=None, help="Provider index")
+    config.add_argument("--to", type=int, default=None, help="Target index for reorder")
+
+    config_ui = subparsers.add_parser(
+        "config-ui",
+        help="Open the local web panel for vision API configuration",
+    )
+    config_ui.add_argument(
+        "--config-path", default=None, help="Config file (default: ~/.lean-cu/config.json)"
+    )
+    config_ui.add_argument(
+        "--port", type=int, default=0, help="Panel port (default: random)"
+    )
+    config_ui.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Print the URL instead of opening a browser",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "doctor":
@@ -318,6 +353,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_recall(args)
     if args.command == "refine":
         return _cmd_refine(args)
+    if args.command == "config":
+        return _cmd_config(args)
+    if args.command == "config-ui":
+        return _cmd_config_ui(args)
 
     settings = _settings_from_args(args)
     upstream = (
@@ -634,6 +673,135 @@ def _cmd_refine(args: argparse.Namespace) -> int:
         f"Review the file, then apply: lean-computer-use refine "
         f"--library {args.library} --apply-file {out_path}"
     )
+    return 0
+
+
+def _cmd_config(args: argparse.Namespace) -> int:
+    """Manage the local vision API endpoint store (shared with the web UI)."""
+    from lean_computer_use_mcp.config_store import (
+        default_config_path,
+        load_config,
+        providers_from_config,
+        public_provider_view,
+        save_config,
+        ping_endpoint,
+    )
+
+    config_path = Path(args.config_path) if args.config_path else default_config_path()
+    config = load_config(config_path)
+    providers = [
+        dict(entry)
+        for entry in config.get("providers", [])
+        if isinstance(entry, dict)
+    ]
+
+    if args.action == "list":
+        if not providers:
+            print(f"No endpoints configured ({config_path}).")
+            print("Add one: lean-computer-use config add --api-base <url> --api-key <key> [--model <m>]")
+            print("Or open the web panel: lean-computer-use config-ui")
+            return 0
+        print(f"Config file: {config_path}")
+        print(f"Engine: {config.get('engine', 'llm')} | Default model: {config.get('model', '') or '(none)'}")
+        for view in public_provider_view(providers_from_config(config)):
+            prefix = "-> " if view["index"] == 0 else "   "
+            model = view["model"] or f"(inherit {config.get('model') or 'default'})"
+            print(f"{prefix}[{view['index']}] {view['host']} | model={model} | key={view['key_masked']}")
+        return 0
+
+    if args.action == "add":
+        if not args.api_base or not args.api_key:
+            print("config add requires --api-base and --api-key", file=sys.stderr)
+            return 1
+        entry = {
+            "api_base": args.api_base.rstrip("/"),
+            "api_key": args.api_key,
+            "model": (args.model or "").strip(),
+        }
+        index = args.index if args.index is not None else len(providers)
+        index = max(0, min(index, len(providers)))
+        providers.insert(index, entry)
+        _save_providers(config, providers, config_path)
+        print(f"Added endpoint at index {index} ({providers[index]['api_base']})")
+        return 0
+
+    if args.action == "remove":
+        if args.index is None or not 0 <= args.index < len(providers):
+            print("config remove requires --index within range", file=sys.stderr)
+            return 1
+        removed = providers.pop(args.index)
+        _save_providers(config, providers, config_path)
+        print(f"Removed [{args.index}] {removed['api_base']}")
+        return 0
+
+    if args.action == "reorder":
+        if args.index is None or args.to is None or not 0 <= args.index < len(providers) \
+                or not 0 <= args.to < len(providers):
+            print("config reorder requires --index and --to within range", file=sys.stderr)
+            return 1
+        providers.insert(args.to, providers.pop(args.index))
+        _save_providers(config, providers, config_path)
+        print(f"Moved [{args.index}] -> [{args.to}]")
+        return 0
+
+    if args.action == "test":
+        if args.index is not None:
+            if not 0 <= args.index < len(providers):
+                print("config test --index out of range", file=sys.stderr)
+                return 1
+            targets = [(args.index, providers[args.index])]
+        else:
+            targets = list(enumerate(providers))
+        if not targets:
+            print("No endpoints to test", file=sys.stderr)
+            return 1
+        failed = False
+        for index, entry in targets:
+            model = (entry.get("model") or "").strip() or config.get("model", "")
+            if not model:
+                print(f"[{index}] {entry['api_base']} skipped (no model set)", file=sys.stderr)
+                failed = True
+                continue
+            result = ping_endpoint(entry["api_base"], entry["api_key"], model)
+            if result.ok:
+                print(
+                    f"[{index}] {entry['api_base']} OK "
+                    f"(HTTP {result.status}, {result.latency_ms:.0f}ms)"
+                )
+            else:
+                print(
+                    f"[{index}] {entry['api_base']} FAILED ({result.error})",
+                    file=sys.stderr,
+                )
+                failed = True
+        return 1 if failed else 0
+
+    return 0
+
+
+def _save_providers(
+    config: dict, providers: list[dict], config_path: Path
+) -> None:
+    from lean_computer_use_mcp.config_store import save_config
+
+    config["providers"] = providers
+    save_config(config, config_path)
+
+
+def _cmd_config_ui(args: argparse.Namespace) -> int:
+    """Launch the local web panel for visual API configuration."""
+    from lean_computer_use_mcp.config_store import default_config_path
+    from lean_computer_use_mcp.config_ui import ConfigUI
+    import threading
+    import webbrowser
+
+    config_path = Path(args.config_path) if args.config_path else default_config_path()
+    ui = ConfigUI(config_path=config_path, port=args.port)
+    print(f"Vision API config panel: {ui.url}")
+    print("Close this window (Ctrl+C) to stop the panel.")
+    if not args.no_browser:
+        threading.Timer(0.6, lambda: webbrowser.open(ui.url)).start()
+    ui.serve_forever()
     return 0
 
 

@@ -104,10 +104,9 @@ optional LLM multimodal), record/compile/replay, atomic procedural memory.
 
 ## Known gaps & recommended next actions (priority order)
 
-1. **Local config file + `lean-computer-use config` command** (user asked;
-   GUI was deferred): move vision providers into `~/.lean-cu/config.toml`
-   (or similar), add CLI subcommand to list/add/remove/reorder/test
-   endpoints without setx + process restart.
+1. ~~Local config file + `config` CLI + web panel~~ DONE (`config-ui` opens
+   a Chinese browser panel; `config list|add|remove|reorder|test` CLI; store
+   `~/.lean-cu/config.json`; `Settings` prefers the file, env is override).
 2. **IME/Chinese input recording** (R2): capture IME-composed text during
    record so Chinese typing steps survive; currently must be hand-patched.
 3. **Replay auto-recovery**: on STALE_STATE, re-observe once and retry the
