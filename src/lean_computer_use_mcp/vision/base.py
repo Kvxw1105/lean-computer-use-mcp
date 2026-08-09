@@ -46,6 +46,20 @@ class GroundingResult:
 
 
 @dataclass(frozen=True)
+class VisionProvider:
+    """One OpenAI-compatible endpoint for the ``llm`` grounding tier.
+
+    ``model`` may be empty to inherit the shared ``VisionConfig.model``.
+    A provider becomes temporarily unavailable after failures; see
+    ``ProviderPool`` in ``vision/pool.py`` for failover and cooldowns.
+    """
+
+    api_base: str
+    api_key: str
+    model: str = ""
+
+
+@dataclass(frozen=True)
 class VisionConfig:
     """Backend selection for the vision fallback."""
 
@@ -57,6 +71,9 @@ class VisionConfig:
     model: str | None = None
     timeout_seconds: float = 60.0
     max_image_side: int = 1568  # screenshot downscale limit before the API call
+    # Optional ordered failover list for engine="llm". Empty keeps the legacy
+    # single-endpoint behavior via api_base/api_key/model.
+    providers: tuple[VisionProvider, ...] = ()
 
 
 class VisionEngineUnavailable(RuntimeError):

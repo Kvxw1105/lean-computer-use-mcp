@@ -6,8 +6,45 @@ import httpx
 import pytest
 from PIL import Image
 
-from lean_computer_use_mcp.vision.base import VisionConfig, VisionEngineUnavailable
+from lean_computer_use_mcp.vision.base import (
+    VisionConfig,
+    VisionEngineUnavailable,
+    VisionProvider,
+)
 from lean_computer_use_mcp.vision.llm import LLMGroundingEngine, _parse_elements, _downscale
+from lean_computer_use_mcp.vision.pool import ProviderPool
+
+
+class FakeClock:
+    """Injected monotonic clock so cooldown math is deterministic."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+
+def _ok_handler(request: httpx.Request) -> httpx.Response:
+    request.read()
+    return httpx.Response(
+        200,
+        json={
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"elements": [{"role": "text", "text": "OK", '
+                            '"x": 0, "y": 0, "width": 1, "height": 1, "confidence": 1.0}]}'
+                        )
+                    }
+                }
+            ]
+        },
+    )
 
 
 def _png_bytes(width: int = 2000, height: int = 1000) -> bytes:
@@ -190,3 +227,158 @@ def test_llm_accepts_rgba_screenshots() -> None:
     )
     result = engine.ground(data)
     assert len(result.elements) == 1
+
+# --- ProviderPool failover -------------------------------------------------
+
+
+def test_pool_candidates_prefer_healthy_in_order() -> None:
+    clock = FakeClock()
+    pool = ProviderPool(
+        [
+            VisionProvider("https://a.test/v1", "k1", "m1"),
+            VisionProvider("https://b.test/v1", "k2", "m2"),
+            VisionProvider("https://c.test/v1", "k3", "m3"),
+        ],
+        now_fn=clock,
+    )
+    assert [i for i, _p in pool.candidates()] == [0, 1, 2]
+    pool.mark_failure(0, 500)
+    assert [i for i, _p in pool.candidates()] == [1, 2, 0]
+    pool.mark_failure(1, 401)
+    assert [i for i, _p in pool.candidates()] == [2, 0, 1]
+
+
+def test_pool_auth_failure_cools_down_longer_than_transient() -> None:
+    clock = FakeClock()
+    pool = ProviderPool(
+        [VisionProvider("https://a.test/v1", "k1", "m1")],
+        auth_cooldown_seconds=600,
+        transient_cooldown_seconds=30,
+        now_fn=clock,
+    )
+    pool.mark_failure(0, 401)
+    assert not pool.is_healthy(0)
+    clock.advance(299)
+    assert not pool.is_healthy(0)
+    clock.advance(301)
+    assert pool.is_healthy(0)
+
+    pool.mark_failure(0, 503)
+    clock.advance(29)
+    assert not pool.is_healthy(0)
+    clock.advance(1)
+    assert pool.is_healthy(0)
+
+
+def test_pool_success_clears_failure_and_keeps_provider() -> None:
+    clock = FakeClock()
+    pool = ProviderPool(
+        [
+            VisionProvider("https://a.test/v1", "k1", "m1"),
+            VisionProvider("https://b.test/v1", "k2", "m2"),
+        ],
+        now_fn=clock,
+    )
+    pool.mark_failure(0, 500)
+    pool.mark_success(1)
+    assert pool.is_healthy(1)
+    # preferred still cooling down; second stays the working provider
+    assert [i for i, _p in pool.candidates()] == [1, 0]
+
+
+def test_pool_exhausted_still_returns_one_candidate() -> None:
+    clock = FakeClock()
+    pool = ProviderPool([VisionProvider("https://a.test/v1", "k1", "m1")], now_fn=clock)
+    pool.mark_failure(0, 401)
+    assert [i for i, _p in pool.candidates()] == [0]
+
+
+# --- engine failover -------------------------------------------------------
+
+
+def _failover_engine(clock: FakeClock, first_status: int):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "a.test":
+            return httpx.Response(first_status, text="boom")
+        return _ok_handler(request)
+
+    config = VisionConfig(
+        engine="llm",
+        providers=(
+            VisionProvider("https://a.test/v1", "k-a", "m-a"),
+            VisionProvider("https://b.test/v1", "k-b", "m-b"),
+        ),
+    )
+    return LLMGroundingEngine(
+        config,
+        transport=httpx.MockTransport(handler),
+        pool=ProviderPool(list(config.providers), now_fn=clock),
+    )
+
+
+def test_engine_fails_over_to_second_provider() -> None:
+    clock = FakeClock()
+    engine = _failover_engine(clock, first_status=500)
+    result = engine.ground(_png_bytes())
+    assert len(result.elements) == 1
+    # first provider is cooling down; next call goes straight to the second
+    assert engine._pool.candidates()[0][0] == 1
+
+
+def test_engine_returns_to_preferred_after_cooldown() -> None:
+    clock = FakeClock()
+    engine = _failover_engine(clock, first_status=401)
+    engine.ground(_png_bytes())
+    assert engine._pool.candidates()[0][0] == 1  # preferred cooling (auth=600s)
+    clock.advance(601)
+    assert engine._pool.candidates()[0][0] == 0
+    # now the first provider answers fine again
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _ok_handler(request)
+    engine.transport = httpx.MockTransport(handler)
+    result = engine.ground(_png_bytes())
+    assert len(result.elements) == 1
+
+
+def test_engine_all_providers_fail_raises() -> None:
+    clock = FakeClock()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="boom")
+
+    config = VisionConfig(
+        engine="llm",
+        providers=(
+            VisionProvider("https://a.test/v1", "k-a", "m-a"),
+            VisionProvider("https://b.test/v1", "k-b", "m-b"),
+        ),
+    )
+    engine = LLMGroundingEngine(
+        config,
+        transport=httpx.MockTransport(handler),
+        pool=ProviderPool(list(config.providers), now_fn=clock),
+    )
+    with pytest.raises(VisionEngineUnavailable, match="all 2 provider"):
+        engine.ground(_png_bytes())
+
+
+def test_engine_transport_error_also_rotates() -> None:
+    clock = FakeClock()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused")
+
+    config = VisionConfig(
+        engine="llm",
+        providers=(
+            VisionProvider("https://a.test/v1", "k-a", "m-a"),
+            VisionProvider("https://b.test/v1", "k-b", "m-b"),
+        ),
+    )
+    engine = LLMGroundingEngine(
+        config,
+        transport=httpx.MockTransport(handler),
+        pool=ProviderPool(list(config.providers), now_fn=clock),
+    )
+    with pytest.raises(VisionEngineUnavailable, match="all 2 provider"):
+        engine.ground(_png_bytes())

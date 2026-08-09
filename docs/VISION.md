@@ -163,6 +163,43 @@ image bytes, node count. Vision additions must also assert `vision_*` counters.
 - Coordinate actions are content-level actions and follow the existing confirmation
   policy of the skill layer; the facade never manufactures confirmation.
 - No personal data or real accessibility trees are committed; fixtures stay sanitized.
+- Provider failover never logs API keys: pool log lines only carry the endpoint
+  host and the failure class (see `vision/pool.py`).
+
+### Multi-endpoint failover (`LEAN_CU_VISION_PROVIDERS`)
+
+Resellers and aggregated channels occasionally change models or rotate keys
+under the same base URL. For continuity, the `llm` engine accepts an ordered
+list of providers, each with its own base URL / key / model:
+
+```json
+[
+  {"api_base": "https://primary.example/v1", "api_key": "sk-...", "model": "gpt-5.6-luna"},
+  {"api_base": "https://backup.example/v1", "api_key": "sk-...", "model": "qwen-vl-max"},
+  {"api_base": "https://third.example/v1", "api_key": "sk-..."}
+]
+```
+
+Set it via the `LEAN_CU_VISION_PROVIDERS` environment variable (JSON array).
+`model` is optional and inherits `LEAN_CU_VISION_MODEL`. The legacy
+`LEAN_CU_VISION_API_BASE` / `_API_KEY` / `_MODEL` variables still work as a
+single implicit provider and are used when `LEAN_CU_VISION_PROVIDERS` is
+absent.
+
+Failover rules (implemented in `vision/pool.py`, unit-tested):
+
+- The first provider is preferred. A failing provider enters a cooldown; the
+  next request routes to the next healthy provider.
+- HTTP 401/403 (bad key/base pair) cool down for 10 minutes; timeouts, 429,
+  connection errors and 5xx cool down for 30 seconds, because channels often
+  recover quickly.
+- The working provider keeps serving until it fails (no flapping back), and
+  its success clears the failure state.
+- After cooldown the preferred provider is retried automatically; if every
+  provider is cooling down the pool still attempts the soonest-to-expire one
+  once, then reports `VisionEngineUnavailable` with endpoint hosts only.
+- Response-content errors (invalid JSON, empty choices) are not treated as
+  endpoint failures and do not rotate.
 
 ## 7. Milestones
 
@@ -180,6 +217,10 @@ image bytes, node count. Vision additions must also assert `vision_*` counters.
   via `LEAN_CU_VISION_ENGINE=llm` plus `LEAN_CU_VISION_API_BASE` / `_API_KEY` /
   `_MODEL`. Local OCR remains the default first tier; `llm` engages when OCR alone
   cannot satisfy the intent (icons, semantics).
+- **V3.1 (done)**: multi-endpoint failover for `engine="llm"` -
+  `LEAN_CU_VISION_PROVIDERS` JSON list, per-provider base/key/model, cooldown
+  rotation (auth 10 min / transient 30 s), automatic return to the preferred
+  provider, unit-tested `ProviderPool` (`vision/pool.py`).
 - **V4 (benchmarks)**: JianYing-style scenarios in `benchmarks/` comparing UIA-only
   vs UIA+vision success rate and context cost.
 

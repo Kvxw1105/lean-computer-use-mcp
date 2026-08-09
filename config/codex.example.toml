@@ -11,7 +11,15 @@
 #   # Vision fallback: local OCR (winrt_ocr | rapidocr), multimodal API (llm), or none.
 #   "LEAN_CU_VISION_ENGINE" = "winrt_ocr",
 #   # Only for LEAN_CU_VISION_ENGINE = "llm" (OpenAI-compatible endpoint).
+#   # Single provider (legacy):
 #   "LEAN_CU_VISION_API_BASE" = "https://<provider>/v1",
 #   "LEAN_CU_VISION_API_KEY" = "<secret>",
 #   "LEAN_CU_VISION_MODEL" = "<vision-model>",
+#   # OR multiple endpoints with automatic failover (preferred first; a failing
+#   # provider cools down and the next one takes over). Overrides the three
+#   # single-provider variables above when set.
+#   # "LEAN_CU_VISION_PROVIDERS" = '[
+#   #   {"api_base": "https://primary.example/v1", "api_key": "<secret>", "model": "<vision-model>"},
+#   #   {"api_base": "https://backup.example/v1", "api_key": "<secret>", "model": "<backup-model>"}
+#   # ]',
 # }

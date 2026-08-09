@@ -4,6 +4,7 @@ from lean_computer_use_mcp.vision.base import (
     VisionConfig,
     VisionEngine,
     VisionEngineUnavailable,
+    VisionProvider,
 )
 from lean_computer_use_mcp.vision.fake import FakeLLMGroundingEngine, FakeVisionEngine
 from lean_computer_use_mcp.vision.llm import LLMGroundingEngine
@@ -23,6 +24,7 @@ __all__ = [
     "VisionConfig",
     "VisionEngine",
     "VisionEngineUnavailable",
+    "VisionProvider",
     "WinRTOCREngine",
     "build_engine",
 ]

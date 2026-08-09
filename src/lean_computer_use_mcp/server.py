@@ -584,6 +584,7 @@ class LeanComputerUse:
                     api_base=self.settings.vision_api_base,
                     api_key=self.settings.vision_api_key,
                     model=self.settings.vision_model,
+                    providers=self.settings.vision_providers,
                 )
             )
         return self._vision
@@ -600,6 +601,7 @@ class LeanComputerUse:
                         api_base=self.settings.vision_api_base,
                         api_key=self.settings.vision_api_key,
                         model=self.settings.vision_model,
+                        providers=self.settings.vision_providers,
                     )
                 )
             except VisionEngineUnavailable:
