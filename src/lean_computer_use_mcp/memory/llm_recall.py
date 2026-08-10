@@ -20,6 +20,9 @@ from typing import Any
 
 from lean_computer_use_mcp.memory.model import MemoryLibrary
 from lean_computer_use_mcp.memory.retrieve import RecallPlan
+from lean_computer_use_mcp.memory.llm_client import TextLlmClient
+from lean_computer_use_mcp.vision.base import VisionProvider
+from lean_computer_use_mcp.vision.pool import ProviderPool
 
 _MAX_PLAN_STEPS = 12
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL)
@@ -89,7 +92,13 @@ def parse_component_ids(content: str, library: MemoryLibrary) -> list[str]:
 
 
 class LlmRecallMapper:
-    """Text-only OpenAI-compatible client used to map intents to components."""
+    """Text-only OpenAI-compatible client used to map intents to components.
+
+    Routes through :class:`TextLlmClient` / :class:`ProviderPool` so a dead
+    endpoint fails over to the next configured provider with the same
+    cooldowns as the vision tier (401/403: 10 min, transient: 30 s). Keys
+    are never logged - only endpoint hosts are.
+    """
 
     name = "llm-recall"
 
@@ -100,49 +109,30 @@ class LlmRecallMapper:
         model: str | None,
         timeout_seconds: float = 60.0,
         transport: Any | None = None,
+        providers: tuple[VisionProvider, ...] = (),
+        pool: ProviderPool | None = None,
     ) -> None:
         self.api_base = api_base
         self.api_key = api_key
         self.model = model
         self.timeout_seconds = timeout_seconds
         self.transport = transport
+        self._client = TextLlmClient(
+            api_base,
+            api_key,
+            model,
+            purpose="LLM recall",
+            timeout_seconds=timeout_seconds,
+            transport=transport,
+            providers=providers,
+            pool=pool,
+        )
 
     def compose(
         self, library: MemoryLibrary, intent: str, app: str | None = None
     ) -> RecallPlan:
-        if not self.api_base or not self.api_key or not self.model:
-            raise ValueError(
-                "LLM recall requires api_base, api_key and model "
-                "(set LEAN_CU_VISION_API_BASE / LEAN_CU_VISION_API_KEY / "
-                "LEAN_CU_VISION_MODEL or pass --api-base/--api-key/--model)"
-            )
-        import httpx
-
         user = f"Intent: {intent}\n\nLibrary:\n{build_library_digest(library, app=app)}"
-        payload = {
-            "model": self.model,
-            "temperature": 0,
-            "max_tokens": 1024,
-            "messages": [
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": user},
-            ],
-        }
-        url = self.api_base.rstrip("/") + "/chat/completions"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        try:
-            if self.transport is not None:
-                with httpx.Client(
-                    transport=self.transport, timeout=self.timeout_seconds
-                ) as client:
-                    response = client.post(url, headers=headers, json=payload)
-            else:
-                with httpx.Client(timeout=self.timeout_seconds) as client:
-                    response = client.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
-        except Exception as exc:  # noqa: BLE001 - surfaced as a caller failure
-            raise ValueError(f"LLM recall request failed: {exc}") from exc
+        content = self._client.complete(_SYSTEM_PROMPT, user, max_tokens=1024)
         ids = parse_component_ids(content, library)
         plan_app = app or (library.components[ids[0]].app if ids else "")
         return RecallPlan(

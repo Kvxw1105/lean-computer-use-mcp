@@ -207,7 +207,7 @@ def test_llm_refiner_surfaces_upstream_failure():
         "m",
         transport=httpx.MockTransport(handler),
     )
-    with pytest.raises(ValueError, match="refinement request failed"):
+    with pytest.raises(ValueError, match="failed for all 1 provider"):
         refiner.refine(_library())
 
 

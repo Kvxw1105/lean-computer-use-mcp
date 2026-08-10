@@ -462,6 +462,7 @@ def _cmd_compile(args: argparse.Namespace) -> int:
             api_base=args.api_base or settings.vision_api_base,
             api_key=args.api_key or settings.vision_api_key,
             model=args.model or settings.vision_model,
+            providers=settings.vision_providers,
         )
         try:
             result = enricher.enrich(recording)
@@ -655,6 +656,7 @@ def _cmd_refine(args: argparse.Namespace) -> int:
         api_base=args.api_base or settings.vision_api_base,
         api_key=args.api_key or settings.vision_api_key,
         model=args.model or settings.vision_model,
+        providers=settings.vision_providers,
     )
     try:
         suggestions = refiner.refine(memory.library)
@@ -848,6 +850,7 @@ def _cmd_recall(args: argparse.Namespace) -> int:
             api_base=args.api_base or settings.vision_api_base,
             api_key=args.api_key or settings.vision_api_key,
             model=args.model or settings.vision_model,
+            providers=settings.vision_providers,
         )
         try:
             plan = mapper.compose(memory.library, args.intent, app=args.app)

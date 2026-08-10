@@ -29,6 +29,10 @@ from typing import Any
 
 from lean_computer_use_mcp.record.model import ElementRef, Recording, RecordedStep
 
+from lean_computer_use_mcp.memory.llm_client import TextLlmClient
+from lean_computer_use_mcp.vision.base import VisionProvider
+from lean_computer_use_mcp.vision.pool import ProviderPool
+
 #: Roles the LLM is allowed to assign; keeps fingerprints stable across runs.
 ROLE_ALLOWLIST = frozenset(
     {
@@ -267,7 +271,13 @@ def enrich_recording(
 
 
 class LlmEnricher:
-    """Text-only OpenAI-compatible client used to name recorded steps."""
+    """Text-only OpenAI-compatible client used to name recorded steps.
+
+    Routes through :class:`TextLlmClient` / :class:`ProviderPool` so a dead
+    endpoint fails over to the next configured provider with the same
+    cooldowns as the vision tier (401/403: 10 min, transient: 30 s). Keys
+    are never logged - only endpoint hosts are.
+    """
 
     name = "llm-enrich"
 
@@ -278,44 +288,25 @@ class LlmEnricher:
         model: str | None,
         timeout_seconds: float = 60.0,
         transport: Any | None = None,
+        providers: tuple[VisionProvider, ...] = (),
+        pool: ProviderPool | None = None,
     ) -> None:
         self.api_base = api_base
         self.api_key = api_key
         self.model = model
         self.timeout_seconds = timeout_seconds
         self.transport = transport
+        self._client = TextLlmClient(
+            api_base,
+            api_key,
+            model,
+            purpose="semantic enrichment",
+            timeout_seconds=timeout_seconds,
+            transport=transport,
+            providers=providers,
+            pool=pool,
+        )
 
     def enrich(self, recording: Recording) -> EnrichmentResult:
-        if not self.api_base or not self.api_key or not self.model:
-            raise ValueError(
-                "semantic enrichment requires api_base, api_key and model "
-                "(set LEAN_CU_VISION_API_BASE / LEAN_CU_VISION_API_KEY / "
-                "LEAN_CU_VISION_MODEL or pass --api-base/--api-key/--model)"
-            )
-        import httpx
-
-        payload = {
-            "model": self.model,
-            "temperature": 0,
-            "max_tokens": 2048,
-            "messages": [
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": build_digest(recording)},
-            ],
-        }
-        url = self.api_base.rstrip("/") + "/chat/completions"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        try:
-            if self.transport is not None:
-                with httpx.Client(
-                    transport=self.transport, timeout=self.timeout_seconds
-                ) as client:
-                    response = client.post(url, headers=headers, json=payload)
-            else:
-                with httpx.Client(timeout=self.timeout_seconds) as client:
-                    response = client.post(url, headers=headers, json=payload)
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
-        except Exception as exc:  # noqa: BLE001 - surfaced as a caller failure
-            raise ValueError(f"semantic enrichment request failed: {exc}") from exc
+        content = self._client.complete(_SYSTEM_PROMPT, build_digest(recording))
         return parse_labels(content, len(recording.steps))

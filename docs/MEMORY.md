@@ -92,7 +92,12 @@ to re-discover a learned unit:
 UIA-thin apps (custom-rendered editors such as JianYing) resolve every click
 to the window node, so deterministic extraction degenerates to one anonymous
 `app::click::::` blob. `compile --llm` asks the model to name coordinate-only
-steps before the skill and the library are built:
+steps before the skill and the library are built. All three text-LLM helpers
+(`compile --llm`, `refine`, `recall --llm`) reuse the vision tier's
+`ProviderPool` failover: a failing endpoint (401/403: 10-minute cooldown;
+timeouts, 429, 5xx: 30-second cooldown) automatically rotates to the next
+configured `LEAN_CU_VISION_PROVIDERS` entry, and API keys never appear in
+logs or error messages - only endpoint hosts do:
 
 ```sh
 lean-computer-use compile --in recordings/subtitle-font-size.json \
