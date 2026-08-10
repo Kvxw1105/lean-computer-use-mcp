@@ -84,6 +84,31 @@ def test_is_commit_name_hints():
     assert not is_commit_name("字号")
 
 
+def test_commit_hints_are_valid_utf8_chinese():
+    """Guard against encoding corruption: hints must stay real Chinese text.
+
+    A file written through a misconfigured stdin (GBK bytes decoded as UTF-8)
+    turns these strings into mojibake and silently breaks commit detection
+    for real UIA names; this test pins the correct characters.
+    """
+    from lean_computer_use_mcp.record.steps import _COMMIT_HINTS
+
+    for hint in (
+        "\u53d1\u5e03",  # ??
+        "\u63d0\u4ea4",  # ??
+        "\u53d1\u9001",  # ??
+        "\u4fdd\u5b58",  # ??
+        "\u786e\u5b9a",  # ??
+        "\u5220\u9664",  # ??
+        "\u8d2d\u4e70",  # ??
+        "\u4ed8\u6b3e",  # ??
+    ):
+        assert hint in _COMMIT_HINTS, f"commit hint {hint!r} is missing or corrupted"
+    assert is_commit_name("\u70b9\u51fb\u63d0\u4ea4\u8ba2\u5355")  # ??????
+    assert is_commit_name("\u4fdd\u5b58\u8349\u7a3f")  # ????
+    assert is_commit_name("\u786e\u8ba4\u4ed8\u6b3e")  # ????
+
+
 def test_click_matched_and_unmatched():
     table = _table()
     steps = build_steps(
