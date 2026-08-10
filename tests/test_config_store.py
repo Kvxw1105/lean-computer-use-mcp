@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 import httpx
 import pytest
@@ -19,6 +20,14 @@ from lean_computer_use_mcp.config_store import (
     update_config,
 )
 from lean_computer_use_mcp.vision.base import VisionProvider
+
+
+def _clear_vision_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make Settings.from_env() hermetic: the local machine may set real
+    LEAN_CU_VISION_* variables that are meant to override the config file."""
+    for name in list(os.environ):
+        if name.startswith("LEAN_CU_VISION_"):
+            monkeypatch.delenv(name, raising=False)
 
 
 def test_load_config_missing_returns_empty_shape(tmp_path) -> None:
@@ -130,7 +139,7 @@ def test_config_file_overrides_settings(monkeypatch, tmp_path) -> None:
     from lean_computer_use_mcp.config import Settings
 
     monkeypatch.setenv("LEAN_CU_CONFIG_DIR", str(tmp_path))
-    monkeypatch.delenv("LEAN_CU_VISION_PROVIDERS", raising=False)
+    _clear_vision_env(monkeypatch)
     save_config(
         {
             "engine": "llm",
@@ -152,6 +161,7 @@ def test_env_providers_override_config_file(monkeypatch, tmp_path) -> None:
     from lean_computer_use_mcp.config import Settings
 
     monkeypatch.setenv("LEAN_CU_CONFIG_DIR", str(tmp_path))
+    _clear_vision_env(monkeypatch)
     save_config(
         {
             "engine": "llm",
