@@ -244,3 +244,81 @@ def test_refiner_and_mapper_accept_provider_pool():
     assert plan.kind == "components"
     assert plan.steps == []
     assert calls == ["b.example", "b.example"]
+
+
+# --- client edge branches -----------------------------------------------------
+
+
+def test_text_client_transport_error_rotates_and_reports():
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "a.example":
+            raise httpx.ConnectError("refused", request=request)
+        calls.append(request.url.host)
+        return _ok_response()
+
+    client = TextLlmClient(
+        None,
+        None,
+        None,
+        purpose="test",
+        transport=httpx.MockTransport(handler),
+        providers=(PROVIDER_A, PROVIDER_B),
+    )
+    assert client.complete("sys", "user") == "ok"
+    assert calls == ["b.example"]
+
+
+def test_text_client_all_transport_errors_raise_structured():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=request)
+
+    client = TextLlmClient(
+        None,
+        None,
+        None,
+        purpose="test",
+        transport=httpx.MockTransport(handler),
+        providers=(PROVIDER_A, PROVIDER_B),
+    )
+    with pytest.raises(ValueError) as exc_info:
+        client.complete("sys", "user")
+    message = str(exc_info.value)
+    assert "transport error" in message
+    assert "host=a.example" in message
+    assert "key-a" not in message
+
+
+def test_text_client_unexpected_payload_raises():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": []})
+
+    client = TextLlmClient(
+        None,
+        None,
+        None,
+        purpose="test",
+        transport=httpx.MockTransport(handler),
+        providers=(PROVIDER_A,),
+    )
+    with pytest.raises(ValueError) as exc_info:
+        client.complete("sys", "user")
+    assert "unexpected payload" in str(exc_info.value)
+
+
+def test_text_client_unconfigured_raises():
+    client = TextLlmClient(None, None, None, purpose="test")
+    with pytest.raises(ValueError) as exc_info:
+        client.complete("sys", "user")
+    assert "requires api_base, api_key and model" in str(exc_info.value)
+
+
+def test_resolve_providers_model_inheritance_and_legacy():
+    from lean_computer_use_mcp.memory.llm_client import resolve_providers
+
+    inherited = resolve_providers(None, None, "shared", (VisionProvider("https://x/v1", "k", ""),))
+    assert inherited[0].model == "shared"
+    legacy = resolve_providers("https://y/v1", "k", "m")
+    assert len(legacy) == 1 and legacy[0].model == "m"
+    assert resolve_providers(None, None, None) == []
