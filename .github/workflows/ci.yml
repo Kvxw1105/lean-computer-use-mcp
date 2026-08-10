@@ -15,3 +15,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --all-extras
       - run: uv run pytest
+      - name: Release gates (no desktop required)
+        run: |
+          uv run python benchmarks/success_matrix.py
+          uv run python benchmarks/verify_pin.py
