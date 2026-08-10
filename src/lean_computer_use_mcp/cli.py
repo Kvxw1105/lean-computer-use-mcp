@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import sys
 import time
 from pathlib import Path
 
 from lean_computer_use_mcp.config import Settings
+from lean_computer_use_mcp.diagnostics import run_doctor
 from lean_computer_use_mcp.memory.refine import (
     LlmRefiner,
     RefineSuggestions,
@@ -55,6 +55,11 @@ def main(argv: list[str] | None = None) -> int:
         "--upstream-binary",
         default=None,
         help="Override the open-computer-use binary name",
+    )
+    doctor.add_argument(
+        "--app",
+        default=None,
+        help="Target app name to check window visibility, ambiguity and DPI",
     )
 
     record = subparsers.add_parser(
@@ -339,13 +344,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "doctor":
-        binary = args.upstream_binary or Settings.from_env().upstream_binary
-        resolved = shutil.which(binary)
-        if resolved:
-            print(f"OK: {binary} -> {resolved}")
-            return 0
-        print(f"MISSING: {binary} not found on PATH")
-        return 1
+        return _cmd_doctor(args)
     if args.command == "record":
         return _cmd_record(args)
     if args.command == "compile":
@@ -811,6 +810,13 @@ def _cmd_config(args: argparse.Namespace) -> int:
         return 1 if failed else 0
 
     return 0
+
+
+def _cmd_doctor(args: argparse.Namespace) -> int:
+    binary = args.upstream_binary or Settings.from_env().upstream_binary
+    report = run_doctor(binary, app=args.app)
+    print(report.render())
+    return 0 if report.ok else 1
 
 
 def _cmd_config_ui(args: argparse.Namespace) -> int:
