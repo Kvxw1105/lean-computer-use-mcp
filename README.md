@@ -2,6 +2,13 @@
 
 Low-context, state-safe MCP facade over [Open Computer Use](https://github.com/iFurySt/open-codex-computer-use) for inexpensive agent models such as GPT-5.6 Luna.
 
+## Install
+
+`pip install "git+https://github.com/Kvxw1105/lean-computer-use-mcp"`
+or `uvx --from "git+https://github.com/Kvxw1105/lean-computer-use-mcp" lean-computer-use serve --fake`.
+See [docs/PACKAGING.md](docs/PACKAGING.md) for MCP registration, skill
+packaging, and the release-gate benchmark matrix.
+
 > Status: M1 verified against the real Windows upstream (`cu_find_app`, `cu_observe`, metrics, `cu_act` stale-rejection and real-action paths, including a JianYing subtitle resize). V2 vision fallback and `vision=auto` LLM escalation are live. Record & Replay (demonstrate a workflow once, replay it cheaply) is implemented as CLI commands. A browser config panel (`config-ui`,
 new-Chinese dashboard UI) with multi-endpoint failover and a local store
 (`~/.lean-cu/config.json`) is live. Not yet recommended for production use.

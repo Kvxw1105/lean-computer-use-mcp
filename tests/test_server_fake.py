@@ -273,3 +273,10 @@ def test_build_action_args_matches_upstream_schemas():
         "element_index": "12",
         "action": "Invoke",
     }
+
+def test_to_mcp_advertises_facade_version(fake_upstream, settings):
+    from lean_computer_use_mcp import __version__
+
+    engine = LeanComputerUse(fake_upstream, settings)
+    mcp = engine.to_mcp()
+    assert mcp.instructions == f"lean-computer-use-mcp v{__version__}"

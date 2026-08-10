@@ -65,6 +65,40 @@ pixel space, which is the space upstream `click` consumes.
 - Ordinary control tasks: at most 2 observations and 1 visual payload.
 - `list_apps`: at most 1 per task.
 
+## M4: success-rate matrix (release gate)
+
+`benchmarks/success_matrix.py` drives the facade through eight scripted
+scenarios (observe, act-by-element, stale-state rejection, drag, window
+management, replay dry-run, replay-declined, metrics hygiene) and reports
+pass/fail plus honest cost counters per scenario:
+
+```sh
+uv run python benchmarks/success_matrix.py            # fake mode, any machine
+uv run python benchmarks/success_matrix.py --real --app ChatGPT  # live desktop
+```
+
+Fake mode is deterministic and safe (no desktop, no API keys) and asserts
+**zero image bytes** in model-visible metrics; it is the release gate
+(exit 0 = all scenarios pass). `--real` uses the installed
+`open-computer-use` CLI; S2/S4 perform a real click/drag on the target app in
+that mode. Results append to `benchmarks/results/success-matrix-<ts>.jsonl`
+(counts only; no screen text or image bytes are stored).
+
+Measured 2026-08-11 (fake mode):
+
+| Scenario | Result | Calls | Text chars | Image bytes |
+|---|---:|---:|---:|---:|
+| S1 observe known app | pass | 1 | 1,615 | 0 |
+| S2 act click by element | pass | 2 | 3,514 | 0 |
+| S3 stale state rejected | pass | 3 | 3,230 | 0 |
+| S4 drag by coordinates | pass | 2 | 3,514 | 0 |
+| S5 window list + activate | pass | 2 | 766 | 0 |
+| S6 replay dry-run offline | pass | 0 | 0 | 0 |
+| S7 replay declined offline | pass | 0 | 0 | 0 |
+| S8 metrics hygiene | pass | 0 | 0 | 0 |
+
+Matrix success rate: **8/8**, model-visible image bytes: **0**.
+
 ## Reporting
 
 Each benchmark run produces a JSONL metrics file plus a summary:

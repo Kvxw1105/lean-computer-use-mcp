@@ -1,0 +1,39 @@
+{
+  "_note": "Register lean-computer-use as an MCP server. The exact schema depends on the client: zcode nests servers under mcp.servers, Claude Desktop uses a top-level mcpServers object. Replace <PROJECT_DIR> and <PYTHON> with real paths.",
+  "zcode_cli_config": {
+    "location": "~/.zcode/cli/config.json",
+    "mcp": {
+      "servers": {
+        "lean-computer-use": {
+          "command": "uv.exe",
+          "args": [
+            "run",
+            "--project",
+            "<PROJECT_DIR>",
+            "lean-computer-use",
+            "serve"
+          ],
+          "timeoutMs": 60000
+        }
+      }
+    }
+  },
+  "claude_desktop": {
+    "location": "%APPDATA%\\Claude\\claude_desktop_config.json",
+    "mcpServers": {
+      "lean-computer-use": {
+        "command": "uvx",
+        "args": [
+          "--from",
+          "git+https://github.com/Kvxw1105/lean-computer-use-mcp",
+          "lean-computer-use",
+          "serve"
+        ],
+        "timeout": 60
+      }
+    }
+  },
+  "generic_http": {
+    "_note": "Some clients want a stdio wrapper script instead of a direct command; run 'lean-computer-use serve' and point the client at it. Vision config lives in ~/.lean-cu/config.json and is never part of the client config."
+  }
+}

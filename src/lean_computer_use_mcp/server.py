@@ -4,6 +4,7 @@ import json
 import time
 from typing import Any
 from mcp.server.fastmcp import FastMCP
+from lean_computer_use_mcp import __version__
 from lean_computer_use_mcp.config import Settings
 from lean_computer_use_mcp.diff.engine import diff
 from lean_computer_use_mcp.errors import (
@@ -554,7 +555,10 @@ class LeanComputerUse:
         return summary
 
     def to_mcp(self) -> FastMCP:
-        mcp = FastMCP("lean-computer-use")
+        mcp = FastMCP(
+            "lean-computer-use",
+            instructions=f"lean-computer-use-mcp v{__version__}",
+        )
         engine = self
 
         @mcp.tool()
