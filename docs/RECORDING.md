@@ -120,6 +120,11 @@ are never stored or shown.
 - If no semantic match exists, recorded coordinates are replayed through the
   facade's `click_method="real"` (this is how custom-rendered UIs such as
   JianYing are handled).
+- A `STALE_STATE` rejection is not fatal: the runner re-observes the app
+  (same `preset="control"`, `vision="auto"`, `max_results=40`) and retries
+  the step with the fresh `state_id`, up to a hard cap of 3 retries per
+  step (`max_stale_retries` on `ReplayRunner`). Still-stale steps fail the
+  run and are reported with the retry count.
 - Window focus steps (`focus_window`) never prompt; content-level steps prompt
   by default and `--yes` pre-confirms the whole plan. Declining a step fails
   that step without touching the desktop.

@@ -48,6 +48,7 @@ class ReplayOutcome:
     text_chars: int = 0
     image_bytes: int = 0
     nodes: int = 0
+    stale_retries: int = 0
 
 
 @dataclass
@@ -109,11 +110,16 @@ class ReplayRunner:
         confirm: ConfirmFn | None = None,
         yes: bool = False,
         memory: Any | None = None,
+        max_stale_retries: int = 3,
     ) -> None:
         self.server = server
         self.confirm = confirm or default_confirm
         self.yes = yes
         self.memory = memory  # optional Memory for execution feedback
+        # Hard cap for automatic STALE_STATE recovery: each retry re-observes
+        # (same preset/vision) and re-executes the step with the fresh
+        # state_id; beyond this the step (and thus the run) fails.
+        self.max_stale_retries = max_stale_retries
 
     def run(
         self,
@@ -176,6 +182,28 @@ class ReplayRunner:
                 confirmed=False,
                 error="declined",
             )
+        outcome = self._attempt(index, step, app)
+        retries = 0
+        while (
+            not outcome.ok
+            and outcome.error == "STALE_STATE"
+            and retries < self.max_stale_retries
+        ):
+            retries += 1
+            # Re-observe (same preset/vision) and retry with the fresh
+            # state_id; transient failures get a chance without touching
+            # the confirmation policy.
+            outcome = self._attempt(index, step, app, record_memory=False)
+        outcome.stale_retries = retries
+        return outcome
+
+    def _attempt(
+        self,
+        index: int,
+        step: RecordedStep,
+        app: str,
+        record_memory: bool = True,
+    ) -> ReplayOutcome:
         intent = step.target.name if step.target and step.target.name else "interact"
         state = self.server.observe(
             app,
@@ -269,7 +297,7 @@ class ReplayRunner:
                 "no coordinate fallback exists for this action",
             }
             resolution = "error"
-        if self.memory is not None:
+        if self.memory is not None and record_memory:
             effect: list[str] = []
             if result.get("ok"):
                 delta = result.get("delta") or {}

@@ -913,7 +913,8 @@ def _cmd_recall(args: argparse.Namespace) -> int:
 
 def _print_outcome(index: int, outcome: ReplayOutcome) -> None:
     status = "ok" if outcome.ok else f"FAILED ({outcome.error})"
-    print(f"  {index}. [{outcome.resolution}] {status}")
+    note = f" (auto-recovered {outcome.stale_retries}x)" if outcome.stale_retries else ""
+    print(f"  {index}. [{outcome.resolution}] {status}{note}")
 
 
 def _print_result(result) -> None:
