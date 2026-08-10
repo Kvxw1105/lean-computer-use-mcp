@@ -83,14 +83,19 @@ lean-computer-use replay --in recordings/font-size.json --run
   - clicks are matched to the element frame containing the point (semantic
     target + coordinates as fallback);
   - wheel events are coalesced into scroll steps;
+  - a left press followed by moves of at least 3 screenshot pixels (jitter
+    guard) is one `drag` step carrying `x`/`y` -> `to_x`/`to_y`; a press with
+    no real movement stays a `click`; moves while any other button is held
+    are ignored;
   - printable keys are grouped into `type_text`, combos (Ctrl+S) become
     `press_key`, Enter is a commit-like press;
   - the recorder's own stop hotkey is filtered out.
 
 Limitations (v1): IME text is captured best-effort via composition sampling
 (real Chinese IME verification is pending on a user's machine; the raw-key
-fallback covers sampling gaps); drag steps are not recorded; cross-app
-workflows replay per-app.
+fallback covers sampling gaps); drag recording works on the hook level
+(press-move-release) and real-desktop drag verification is pending on a
+user's machine; cross-app workflows replay per-app.
 
 ## Library store confirmation
 

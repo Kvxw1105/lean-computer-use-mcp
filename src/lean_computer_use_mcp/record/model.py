@@ -21,7 +21,7 @@ RECORDING_VERSION = 1
 #: Actions that only touch window placement; these never need confirmation.
 WINDOW_ACTIONS = frozenset({"focus"})
 #: Actions that change application content; these need explicit confirmation.
-CONTENT_ACTIONS = frozenset({"click", "scroll", "type_text", "press_key"})
+CONTENT_ACTIONS = frozenset({"click", "scroll", "drag", "type_text", "press_key"})
 
 
 @dataclass(frozen=True)
@@ -29,7 +29,7 @@ class InputEvent:
     """One raw input event captured by a hook (mouse/keyboard)."""
 
     ts: float
-    kind: str  # mouse_down | mouse_up | wheel | key_down | key_up
+    kind: str  # mouse_down | mouse_up | mouse_move | wheel | key_down | key_up
     x: int | None = None
     y: int | None = None
     button: str | None = None
@@ -128,6 +128,8 @@ class RecordedStep:
     target: ElementRef | None = None
     x: int | None = None
     y: int | None = None
+    to_x: int | None = None
+    to_y: int | None = None
     value: str | None = None
     key: str | None = None
     direction: str | None = None
@@ -159,6 +161,10 @@ class RecordedStep:
             result["x"] = self.x
         if self.y is not None:
             result["y"] = self.y
+        if self.to_x is not None:
+            result["to_x"] = self.to_x
+        if self.to_y is not None:
+            result["to_y"] = self.to_y
         if self.value is not None:
             result["value"] = self.value
         if self.ime_text is not None:
@@ -185,6 +191,8 @@ class RecordedStep:
             target=ElementRef.from_dict(target) if target else None,
             x=data.get("x"),
             y=data.get("y"),
+            to_x=data.get("to_x"),
+            to_y=data.get("to_y"),
             value=data.get("value"),
             key=data.get("key"),
             direction=data.get("direction"),
@@ -209,7 +217,8 @@ class RecordedStep:
             if target and target.name:
                 return f"Click{where}"
             return f"Click at ({self.x}, {self.y})"
-            return f"Click at ({self.x}, {self.y})"
+        if self.action == "drag":
+            return f"Drag from ({self.x}, {self.y}) to ({self.to_x}, {self.to_y})"
         if self.action == "scroll":
             return f"Scroll {self.direction or ''}{where}".strip()
         if self.action == "type_text":

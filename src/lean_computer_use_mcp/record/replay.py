@@ -263,7 +263,29 @@ class ReplayRunner:
             )
         else:
             matched = None
-        if matched is not None:
+        if (
+            step.action == "drag"
+            and step.x is not None
+            and step.y is not None
+            and step.to_x is not None
+            and step.to_y is not None
+        ):
+            # Drags always replay by coordinates: the facade's drag action
+            # requires all four from_*/to_* values and has no element-index
+            # path (timeline/upload interactions are custom-rendered).
+            self.server.upstream.focus_window(app)
+            result = self.server.act(
+                app,
+                state_id,
+                "drag",
+                from_x=step.x,
+                from_y=step.y,
+                to_x=step.to_x,
+                to_y=step.to_y,
+                commit=step.commit,
+            )
+            resolution = "coords"
+        elif matched is not None:
             source, element, _score = matched
             if source == "controls":
                 result = self.server.act(
@@ -330,11 +352,17 @@ class ReplayRunner:
             )
             resolution = "focus"
         else:
+            if step.action == "drag":
+                message = "drag step has no usable from/to coordinates"
+            else:
+                message = (
+                    f"recorded target {step.target} is not in the live tree and "
+                    "no coordinate fallback exists for this action"
+                )
             result = {
                 "ok": False,
                 "error": "ELEMENT_NOT_FOUND",
-                "message": f"recorded target {step.target} is not in the live tree and "
-                "no coordinate fallback exists for this action",
+                "message": message,
             }
             resolution = "error"
         if self.memory is not None and record_memory:

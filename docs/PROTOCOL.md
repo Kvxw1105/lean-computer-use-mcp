@@ -389,8 +389,13 @@ Replay drives the facade with fixed semantics:
   recorded name against vision elements (click at vision frame center via
   `click_method="real"`) -> recorded screenshot-pixel coordinates via
   `click_method="real"`.
+- Recorded `drag` steps always replay by coordinates (`from_x`/`from_y` ->
+  `to_x`/`to_y`, screenshot pixels): the facade's drag action has no
+  element-index path and targets custom-rendered surfaces (timelines, file
+  uploads).
 - `type_text`/`press_key` without a resolved element use the facade's
-  focus-based path with the fresh `state_id`.
+  focus-based path with the fresh `state_id`; `drag` steps focus the window
+  first, then call `cu_act` with the four coordinates.
 - Confirmation: `focus` steps never prompt (window-level); all other steps
   prompt by default (`--run`), `--yes` pre-confirms, declining fails the step
   without touching the desktop.

@@ -25,8 +25,13 @@ from lean_computer_use_mcp.record.model import (
     RecordedStep,
 )
 
+from typing import Any
+
 #: Click-match tolerance in screenshot pixels when no frame contains the point.
 _CLICK_MARGIN = 24
+#: Minimum press-to-move distance (screenshot pixels) before a left gesture is
+#: treated as a drag instead of a click (jitter guard).
+_DRAG_THRESHOLD = 3
 #: Coalescing windows (seconds) for wheel and typing events.
 _SCROLL_COALESCE = 0.35
 _TYPE_GAP = 2.0
@@ -152,6 +157,13 @@ def build_steps(
     ime_commits: list[str] = []
     ime_keys: list[str] = []
     ime_composition = ""
+    # Drag gesture state: a left press followed by moves >= _DRAG_THRESHOLD
+    # converts the pending click into one drag step (from = press offset,
+    # to = last move / release offset). Sub-threshold jitter stays a click.
+    # Only the left button can start a drag; moves while another button is
+    # held are ignored.
+    drag: dict[str, Any] | None = None
+    buttons_down: set[str] = set()
 
     def flush_type() -> None:
         nonlocal pending, pending_window
@@ -187,6 +199,26 @@ def build_steps(
         ime_commits = []
         ime_keys = []
         ime_composition = ""
+
+    def flush_drag() -> None:
+        nonlocal drag
+        if drag is None:
+            return
+        steps.append(
+            RecordedStep(
+                action="drag",
+                window_title=drag["window_title"],
+                target=drag["target"],
+                x=drag["x"],
+                y=drag["y"],
+                to_x=drag["last_x"],
+                to_y=drag["last_y"],
+                matched=drag["matched"],
+                commit=drag["commit"],
+                uncertain=drag["uncertain"],
+            )
+        )
+        drag = None
 
     def click_target(
         event: InputEvent,
@@ -321,8 +353,13 @@ def build_steps(
             flush_ime()
             flush_type()
             flush_type()
+            if event.button is None:
+                continue
+            buttons_down.add(event.button)
             if event.button != "left":
                 continue
+            if drag is not None:
+                flush_drag()  # defensive: a second left press ends the gesture
             target, ox, oy, matched = click_target(event)
             steps.append(
                 RecordedStep(
@@ -336,6 +373,51 @@ def build_steps(
                     uncertain=not matched,
                 )
             )
+            continue
+        if event.kind == "mouse_move":
+            if event.offset() is None:
+                continue
+            mx, my = event.offset()
+            if drag is not None:
+                drag["last_x"], drag["last_y"] = mx, my
+                continue
+            # Only moves while exactly the left button is held can start a
+            # drag; plain hovers and other-button gestures never mutate steps.
+            if buttons_down != {"left"}:
+                continue
+            if not steps or steps[-1].action != "click":
+                continue
+            if steps[-1].window_title != event.window_title:
+                continue
+            click = steps[-1]
+            if click.x is None or click.y is None:
+                continue
+            distance = ((mx - click.x) ** 2 + (my - click.y) ** 2) ** 0.5
+            if distance < _DRAG_THRESHOLD:
+                continue
+            popped = steps.pop()
+            drag = {
+                "window_title": popped.window_title,
+                "target": popped.target,
+                "x": popped.x,
+                "y": popped.y,
+                "matched": popped.matched,
+                "commit": popped.commit,
+                "uncertain": popped.uncertain,
+                "last_x": mx,
+                "last_y": my,
+            }
+            continue
+        if event.kind == "mouse_up":
+            if event.button is None:
+                continue
+            buttons_down.discard(event.button)
+            if drag is None or event.button != "left":
+                continue
+            end = event.offset()
+            if end is not None:
+                drag["last_x"], drag["last_y"] = end
+            flush_drag()
             continue
         if event.kind == "wheel":
             flush_type()
@@ -363,7 +445,8 @@ def build_steps(
             last_scroll_index = len(steps) - 1
             last_wheel_ts = event.ts
             continue
-        # mouse_up and anything else: no step on its own
+        # anything else: no step on its own
     flush_ime()
     flush_type()
+    flush_drag()  # stop pressed mid-gesture: keep the drag up to its last move
     return steps

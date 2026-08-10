@@ -39,9 +39,13 @@ _VK_R = 0x52
 _GCS_COMPSTR = 0x0008
 _GCS_RESULTSTR = 0x0800
 
+_MOUSE_MOUSEMOVE = 0x0200
 _MOUSE_LBUTTONDOWN = 0x0201
+_MOUSE_LBUTTONUP = 0x0202
 _MOUSE_RBUTTONDOWN = 0x0204
+_MOUSE_RBUTTONUP = 0x0205
 _MOUSE_MBUTTONDOWN = 0x0207
+_MOUSE_MBUTTONUP = 0x0208
 _MOUSE_WHEEL = 0x020A
 
 
@@ -269,6 +273,7 @@ class WinInputHook:
         self.on_event: Callable[[InputEvent], None] | None = on_event
         self.ime = ime or ImeSampler()
         self.events: list[InputEvent] = []
+        self._buttons_down: set[str] = set()
         self._thread: threading.Thread | None = None
         self._hooks: list[int] = []
         self._procs: list[Any] = []
@@ -344,25 +349,57 @@ class WinInputHook:
     def _on_mouse(self, code: int, wparam: int, lparam: int) -> int:
         if code >= 0 and lparam:
             data = ctypes.cast(lparam, ctypes.POINTER(_MSLLHOOKSTRUCT)).contents
-            if wparam == _MOUSE_LBUTTONDOWN:
+            if wparam == _MOUSE_MOUSEMOVE and self._buttons_down:
+                # Moves only matter between press and release (drag gestures);
+                # outside a drag they would flood the recording.
+                self._record(
+                    self._capture(
+                        "mouse_move", x=int(data.pt.x), y=int(data.pt.y)
+                    )
+                )
+            elif wparam == _MOUSE_LBUTTONDOWN:
+                self._buttons_down.add("left")
                 self._record(
                     self._capture(
                         "mouse_down", x=int(data.pt.x), y=int(data.pt.y), button="left"
                     )
                 )
             elif wparam == _MOUSE_RBUTTONDOWN:
+                self._buttons_down.add("right")
                 self._record(
                     self._capture(
                         "mouse_down", x=int(data.pt.x), y=int(data.pt.y), button="right"
                     )
                 )
             elif wparam == _MOUSE_MBUTTONDOWN:
+                self._buttons_down.add("middle")
                 self._record(
                     self._capture(
                         "mouse_down",
                         x=int(data.pt.x),
                         y=int(data.pt.y),
                         button="middle",
+                    )
+                )
+            elif wparam == _MOUSE_LBUTTONUP:
+                self._buttons_down.discard("left")
+                self._record(
+                    self._capture(
+                        "mouse_up", x=int(data.pt.x), y=int(data.pt.y), button="left"
+                    )
+                )
+            elif wparam == _MOUSE_RBUTTONUP:
+                self._buttons_down.discard("right")
+                self._record(
+                    self._capture(
+                        "mouse_up", x=int(data.pt.x), y=int(data.pt.y), button="right"
+                    )
+                )
+            elif wparam == _MOUSE_MBUTTONUP:
+                self._buttons_down.discard("middle")
+                self._record(
+                    self._capture(
+                        "mouse_up", x=int(data.pt.x), y=int(data.pt.y), button="middle"
                     )
                 )
             elif wparam == _MOUSE_WHEEL:
