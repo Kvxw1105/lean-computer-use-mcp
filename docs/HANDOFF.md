@@ -148,21 +148,23 @@ optional LLM multimodal), record/compile/replay, atomic procedural memory.
 1. ~~Local config file + `config` CLI + web panel~~ DONE (`config-ui` opens
    a Chinese browser panel; `config list|add|remove|reorder|test` CLI; store
    `~/.lean-cu/config.json`; `Settings` prefers the file, env is override).
-2. **IME/Chinese input recording** (R2): capture IME-composed text during
-   record so Chinese typing steps survive; currently must be hand-patched.
-3. **Replay auto-recovery**: on STALE_STATE, re-observe once and retry the
-   step (with a hard cap), instead of failing the whole plan.
-4. **Drag-step recording** (R2) for timeline/upload interactions.
-5. **Cross-app workflow orchestration**: e.g. JianYing export skill then
-   browser publish skill chained by the agent; document the pattern.
-6. **M4 release engineering**: install command, skill/plugin packaging,
-   success-rate benchmark matrix vs upstream baseline (acceptance:
-   <=3pp success drop), pinned upstream version + regression fixtures.
-7. **Social publishing pilot**: record "JianYing export -> platform upload"
-   with the user, identify real blockers (file dialog, drag, verification).
-8. **Extend ProviderPool** to `memory/enrich.py`, `memory/refine.py`,
-   `memory/llm_recall.py` (text LLM calls still single-endpoint).
-
+2. ~~IME/Chinese input recording~~ DONE (record captures composed IME text;
+   steps land in `recording.json` as `type_text`; see docs/RECORDING.md).
+3. ~~Replay auto-recovery~~ DONE (STALE_STATE re-observes once with the same
+   preset/vision and retries the step; hard cap 3, then the plan fails).
+4. ~~Drag-step recording~~ DONE (press-move-release groups into `drag` steps
+   with from/to screenshot-pixel coordinates; see docs/RECORDING.md).
+5. Cross-app workflow orchestration: pattern documented in
+   docs/WORKFLOWS.md (agent-layer skill chaining); real-machine chain
+   verification pending - see docs/VERIFICATION.md.
+6. ~~M4 release engineering~~ DONE (v0.2.0; install + MCP registration +
+   skill packaging in docs/PACKAGING.md; success-rate matrix and pinned
+   upstream fixture hashes run as CI release gates).
+7. Social publishing pilot: still open; needs a user-machine session to
+   record "JianYing export -> platform upload" and find real blockers.
+8. ~~Extend ProviderPool~~ DONE (`memory/enrich.py`, `memory/refine.py`,
+   `memory/llm_recall.py` route text-LLM calls through `vision/pool.py`
+   ProviderPool with 401/403 cooldown and automatic rotation).
 ## Working constraints
 
 - Never commit screenshots, personal data, real accessibility trees, API

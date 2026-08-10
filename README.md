@@ -9,9 +9,13 @@ or `uvx --from "git+https://github.com/Kvxw1105/lean-computer-use-mcp" lean-comp
 See [docs/PACKAGING.md](docs/PACKAGING.md) for MCP registration, skill
 packaging, and the release-gate benchmark matrix.
 
-> Status: M1 verified against the real Windows upstream (`cu_find_app`, `cu_observe`, metrics, `cu_act` stale-rejection and real-action paths, including a JianYing subtitle resize). V2 vision fallback and `vision=auto` LLM escalation are live. Record & Replay (demonstrate a workflow once, replay it cheaply) is implemented as CLI commands. A browser config panel (`config-ui`,
-new-Chinese dashboard UI) with multi-endpoint failover and a local store
-(`~/.lean-cu/config.json`) is live. Not yet recommended for production use.
+> Status: **v0.2.0** (pinned upstream `0.3.1`). Phase-2 is complete: `cu_window`
+> with occlusion/ambiguity handling, real-input facade fallback with structured
+> errors, extended `doctor`, screenshot-fingerprint stale gate for trivial-tree
+> apps, replay auto-recovery, IME + drag recording, and text-LLM ProviderPool
+> failover. Release gates (success-rate matrix, upstream fixture pin) run in CI;
+> the real-machine checklist lives in docs/VERIFICATION.md. 317 tests pass
+> (1 skipped). Not yet recommended for production use.
 
 ## Why this project exists
 
