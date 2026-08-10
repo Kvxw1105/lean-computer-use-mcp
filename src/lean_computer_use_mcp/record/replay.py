@@ -197,6 +197,33 @@ class ReplayRunner:
         outcome.stale_retries = retries
         return outcome
 
+    def _press_key_with_recovery(
+        self, app: str, state_id: str, key: str, commit: bool
+    ) -> dict[str, Any]:
+        """One press_key with capped re-observe recovery on STALE_STATE."""
+        result = self.server.act(app, state_id, "press_key", key=key, commit=commit)
+        retries = 0
+        while (
+            not result.get("ok")
+            and result.get("error") == "STALE_STATE"
+            and retries < self.max_stale_retries
+        ):
+            retries += 1
+            state = self.server.observe(
+                app,
+                intent="interact",
+                output_mode="controls",
+                preset="control",
+                vision="auto",
+                max_results=40,
+            )
+            if not state.get("ok"):
+                return result
+            result = self.server.act(
+                app, state["state_id"], "press_key", key=key, commit=commit
+            )
+        return result
+
     def _attempt(
         self,
         index: int,
@@ -279,6 +306,19 @@ class ReplayRunner:
                 commit=step.commit,
             )
             resolution = "coords"
+        elif step.action == "type_text" and not step.value and step.ime_keys:
+            # IME composition sampling failed to recover text: replay the
+            # original key sequence (letters + commit keys) - semantically
+            # equivalent for Chinese input. Each key gets the same capped
+            # STALE_STATE recovery as a content step.
+            current_id = state_id
+            result = {"ok": True}
+            for key in step.ime_keys:
+                result = self._press_key_with_recovery(app, current_id, key, step.commit)
+                if not result.get("ok"):
+                    break
+                current_id = result.get("state_id") or current_id
+            resolution = "focus"
         elif step.action in {"type_text", "press_key"}:
             result = self.server.act(
                 app,

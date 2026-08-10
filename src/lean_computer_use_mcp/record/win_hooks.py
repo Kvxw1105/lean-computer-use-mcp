@@ -36,6 +36,9 @@ _VK_CONTROL = 0x11
 _VK_SHIFT = 0x10
 _VK_R = 0x52
 
+_GCS_COMPSTR = 0x0008
+_GCS_RESULTSTR = 0x0800
+
 _MOUSE_LBUTTONDOWN = 0x0201
 _MOUSE_RBUTTONDOWN = 0x0204
 _MOUSE_MBUTTONDOWN = 0x0207
@@ -59,6 +62,20 @@ class _KBDLLHOOKSTRUCT(ctypes.Structure):
         ("flags", wt.DWORD),
         ("time", wt.DWORD),
         ("dwExtraInfo", ctypes.c_size_t),
+    ]
+
+
+class _GUITHREADINFO(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wt.DWORD),
+        ("flags", wt.DWORD),
+        ("hwndActive", wt.HWND),
+        ("hwndFocus", wt.HWND),
+        ("hwndCapture", wt.HWND),
+        ("hwndMenuOwner", wt.HWND),
+        ("hwndMoveSize", wt.HWND),
+        ("hwndCaret", wt.HWND),
+        ("rcCaret", wt.RECT),
     ]
 
 
@@ -142,6 +159,95 @@ class WinForeground:
         )
 
 
+class ImeSampler:
+    """Samples the foreground window's IME state on every key event.
+
+    Best effort, Windows-only: reads the focus window's input context
+    (``ImmGetContext`` + ``ImmGetCompositionStringW``) and reports
+    ``(ime_open, composition, newly_committed)``. A commit is detected when
+    the result string differs from the previously sampled one; identical
+    repeated commits (typing the same word twice) are reported as
+    composition transitions by the step builder, which keeps the raw key
+    sequence as the always-correct fallback. Any failure returns a closed
+    state so the recorder never breaks.
+    """
+
+    def __init__(
+        self, user32: Any | None = None, imm32: Any | None = None
+    ) -> None:
+        self._user32 = user32
+        self._imm32 = imm32
+        self._last_result = ""
+
+    def _ensure_backends(self) -> None:
+        if self._user32 is not None and self._imm32 is not None:
+            return
+        if not _IS_WINDOWS:
+            raise RealInputUnavailableError("IME sampling requires Windows")
+        user32 = ctypes.windll.user32
+        imm32 = ctypes.windll.imm32
+        imm32.ImmGetContext.restype = ctypes.c_void_p
+        imm32.ImmGetContext.argtypes = [wt.HWND]
+        imm32.ImmGetOpenStatus.restype = wt.BOOL
+        imm32.ImmGetOpenStatus.argtypes = [ctypes.c_void_p]
+        imm32.ImmGetCompositionStringW.restype = ctypes.c_long
+        imm32.ImmGetCompositionStringW.argtypes = [
+            ctypes.c_void_p,
+            wt.DWORD,
+            ctypes.c_void_p,
+            wt.DWORD,
+        ]
+        imm32.ImmReleaseContext.restype = wt.BOOL
+        imm32.ImmReleaseContext.argtypes = [wt.HWND, ctypes.c_void_p]
+        user32.GetGUIThreadInfo.restype = wt.BOOL
+        user32.GetGUIThreadInfo.argtypes = [wt.DWORD, ctypes.POINTER(_GUITHREADINFO)]
+        self._user32 = user32
+        self._imm32 = imm32
+
+    def _read_string(self, imc: int, flag: int) -> str:
+        size = self._imm32.ImmGetCompositionStringW(imc, flag, None, 0)
+        if size <= 0:
+            return ""
+        buf = ctypes.create_unicode_buffer(size // 2 + 1)
+        written = self._imm32.ImmGetCompositionStringW(imc, flag, buf, size)
+        if written <= 0:
+            return ""
+        return buf.value
+
+    def sample(self) -> tuple[bool, str, str]:
+        """Return ``(ime_open, composition, committed_since_last_sample)``."""
+        try:
+            self._ensure_backends()
+            foreground = self._user32.GetForegroundWindow()
+            if not foreground:
+                return False, "", ""
+            tid = wt.DWORD()
+            self._user32.GetWindowThreadProcessId(foreground, ctypes.byref(tid))
+            gui = _GUITHREADINFO()
+            gui.cbSize = ctypes.sizeof(_GUITHREADINFO)
+            if not self._user32.GetGUIThreadInfo(tid.value, ctypes.byref(gui)):
+                return False, "", ""
+            focus = gui.hwndFocus
+            if not focus:
+                return False, "", ""
+            imc = self._imm32.ImmGetContext(focus)
+            if not imc:
+                return False, "", ""
+            try:
+                if not self._imm32.ImmGetOpenStatus(imc):
+                    return False, "", ""
+                composition = self._read_string(imc, _GCS_COMPSTR)
+                result = self._read_string(imc, _GCS_RESULTSTR)
+                committed = result if result and result != self._last_result else ""
+                if result:
+                    self._last_result = result
+                return True, composition, committed
+            finally:
+                self._imm32.ImmReleaseContext(focus, imc)
+        except (RealInputUnavailableError, OSError, AttributeError, ValueError):
+            return False, "", ""
+
+
 class WinInputHook:
     """Global mouse/keyboard hook; captures InputEvents on a daemon thread.
 
@@ -155,11 +261,13 @@ class WinInputHook:
         stop_event: threading.Event | None = None,
         foreground: WinForeground | None = None,
         on_event: Callable[[InputEvent], None] | None = None,
+        ime: ImeSampler | None = None,
     ) -> None:
         self.stop_vk = stop_vk
         self.stop_event = stop_event or threading.Event()
         self.foreground = foreground or WinForeground()
         self.on_event: Callable[[InputEvent], None] | None = on_event
+        self.ime = ime or ImeSampler()
         self.events: list[InputEvent] = []
         self._thread: threading.Thread | None = None
         self._hooks: list[int] = []
@@ -275,10 +383,27 @@ class WinInputHook:
             vk = int(data.vkCode)
             if self._is_stop_combo(vk):
                 return self._call_next(code, wparam, lparam)
+            ime_open, composition, committed = self.ime.sample()
             if wparam == 0x0100:  # WM_KEYDOWN
-                self._record(self._capture("key_down", vk=vk))
+                self._record(
+                    self._capture(
+                        "key_down",
+                        vk=vk,
+                        ime_open=ime_open,
+                        ime_composition=composition,
+                        ime_commit=committed,
+                    )
+                )
             elif wparam == 0x0101:  # WM_KEYUP
-                self._record(self._capture("key_up", vk=vk))
+                self._record(
+                    self._capture(
+                        "key_up",
+                        vk=vk,
+                        ime_open=ime_open,
+                        ime_composition=composition,
+                        ime_commit=committed,
+                    )
+                )
         return self._call_next(code, wparam, lparam)
 
     def _is_stop_combo(self, vk: int) -> bool:

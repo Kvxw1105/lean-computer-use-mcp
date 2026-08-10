@@ -2,8 +2,9 @@
 
 Pure functions only: everything here is testable without a desktop. The
 mapping covers Latin layout keys; IME-composed text (for example Chinese
-input) is intentionally not captured and must be added to the generated
-skill by hand (see docs/RECORDING.md).
+input) is captured by the Windows hook's IME sampler and grouped by
+``steps.build_steps`` into type_text steps carrying the composed text plus
+the original key sequence (see docs/RECORDING.md).
 """
 
 from __future__ import annotations

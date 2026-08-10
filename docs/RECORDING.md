@@ -45,6 +45,15 @@ lean-computer-use replay --in recordings/font-size.json --run
 - A low-level `WH_MOUSE_LL` / `WH_KEYBOARD_LL` hook captures mouse clicks,
   wheel deltas and key events with timestamps and the foreground window
   title/rect (`record/win_hooks.py`, Windows-only).
+- IME capture: every key event also samples the foreground window's input
+  context (`ImmGetCompositionStringW` for the composition and result
+  strings, Windows-only). While the IME is open, the step builder groups the
+  keys into one `type_text` step whose value is the real composed text
+  (e.g. `??` for pinyin `nihao` + Space) and keeps the original key
+  sequence (`ime_keys`) as the replay fallback. When sampling cannot recover
+  text (IME closed at replay time, repeated identical commits), the step
+  keeps `value` empty and replay presses the original keys in order, which
+  is semantically equivalent for Chinese input.
 - A screen-edge glow (blue-purple, click-through, always-on-top) is shown
   while a live session records, so you always know the demonstration is being
   captured (`record/overlay.py`, Windows-only). The glow is animated: a soft
@@ -78,9 +87,10 @@ lean-computer-use replay --in recordings/font-size.json --run
     `press_key`, Enter is a commit-like press;
   - the recorder's own stop hotkey is filtered out.
 
-Limitations (v1): Latin keyboard layout only; IME-composed text (e.g. Chinese
-input) is not captured - add it to the generated `SKILL.md` or `recording.json`
-by hand; drag steps are not recorded; cross-app workflows replay per-app.
+Limitations (v1): IME text is captured best-effort via composition sampling
+(real Chinese IME verification is pending on a user's machine; the raw-key
+fallback covers sampling gaps); drag steps are not recorded; cross-app
+workflows replay per-app.
 
 ## Library store confirmation
 

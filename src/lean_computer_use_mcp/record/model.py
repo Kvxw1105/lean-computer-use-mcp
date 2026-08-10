@@ -38,6 +38,13 @@ class InputEvent:
     window_title: str = ""
     window_pid: int = 0
     window_rect: tuple[int, int, int, int] | None = None
+    # IME state sampled at this event (Windows). ``ime_open`` marks an active
+    # IME session; ``ime_composition`` is the current pinyin/candidate string;
+    # ``ime_commit`` is text newly committed to the application since the
+    # previous sample (empty when nothing was committed).
+    ime_open: bool = False
+    ime_composition: str = ""
+    ime_commit: str = ""
 
     def offset(self) -> tuple[int, int] | None:
         """Map screen coords to screenshot-pixel offsets for this event."""
@@ -129,6 +136,11 @@ class RecordedStep:
     commit: bool = False
     value_placeholder: bool = False  # value came from a template, not a recording
     uncertain: bool = False  # recorded without a semantic element match
+    # IME-composed typing: ``ime_text`` is the text the IME committed (the
+    # real Chinese characters); ``ime_keys`` is the original key sequence
+    # captured during composition (replay fallback when sampling failed).
+    ime_text: str | None = None
+    ime_keys: list[str] | None = None
 
     @property
     def is_content(self) -> bool:
@@ -149,6 +161,10 @@ class RecordedStep:
             result["y"] = self.y
         if self.value is not None:
             result["value"] = self.value
+        if self.ime_text is not None:
+            result["ime_text"] = self.ime_text
+        if self.ime_keys is not None:
+            result["ime_keys"] = list(self.ime_keys)
         if self.key is not None:
             result["key"] = self.key
         if self.direction is not None:
@@ -177,6 +193,10 @@ class RecordedStep:
             commit=bool(data.get("commit", False)),
             value_placeholder=bool(data.get("value_placeholder", False)),
             uncertain=bool(data.get("uncertain", False)),
+            ime_text=data.get("ime_text"),
+            ime_keys=[str(item) for item in data.get("ime_keys", [])]
+            if data.get("ime_keys")
+            else None,
         )
 
     def describe(self) -> str:
@@ -195,7 +215,11 @@ class RecordedStep:
         if self.action == "type_text":
             if self.value_placeholder:
                 return f"Type <value> into{where}"
-            return f"Type {self.value!r} into{where}"
+            if self.value:
+                return f"Type {self.value!r} into{where}"
+            if self.ime_keys:
+                return f"Type IME sequence {', '.join(self.ime_keys)} into{where}"
+            return f"Type <text> into{where}"
         if self.action == "press_key":
             return f"Press {self.key} on{where}"
         return f"Run {self.action}"

@@ -11,6 +11,7 @@ from __future__ import annotations
 from lean_computer_use_mcp.models import ControlNode, Frame
 from lean_computer_use_mcp.record.keys import (
     VK_RETURN,
+    VK_SPACE,
     combo_name,
     is_modifier,
     is_printable,
@@ -143,6 +144,14 @@ def build_steps(
     last_key_ts = 0.0
     last_scroll_index: int | None = None
     skip_vk: set[int] = set()
+    # IME session state: an active IME swallows printable keys into one
+    # type_text step carrying the composed text (ime_text) plus the original
+    # key sequence (ime_keys) as the replay fallback.
+    ime_active = False
+    ime_window = ""
+    ime_commits: list[str] = []
+    ime_keys: list[str] = []
+    ime_composition = ""
 
     def flush_type() -> None:
         nonlocal pending, pending_window
@@ -157,6 +166,27 @@ def build_steps(
         )
         pending = []
         pending_window = ""
+
+    def flush_ime() -> None:
+        nonlocal ime_active, ime_window, ime_commits, ime_keys, ime_composition
+        if not ime_active:
+            return
+        value = "".join(ime_commits) or None
+        steps.append(
+            RecordedStep(
+                action="type_text",
+                window_title=ime_window,
+                value=value,
+                ime_text=value,
+                ime_keys=list(ime_keys) if ime_keys else None,
+                uncertain=value is None,
+            )
+        )
+        ime_active = False
+        ime_window = ""
+        ime_commits = []
+        ime_keys = []
+        ime_composition = ""
 
     def click_target(
         event: InputEvent,
@@ -195,6 +225,10 @@ def build_steps(
             if event.vk in skip_vk:
                 continue
             if {"Control", "Alt", "Win"} & modifiers:
+                if event.ime_open:
+                    ime_keys.append(combo_name(modifiers, event.vk or 0))
+                    ime_composition = event.ime_composition
+                    continue
                 flush_type()
                 key = combo_name(modifiers, event.vk or 0)
                 steps.append(
@@ -206,6 +240,31 @@ def build_steps(
                     )
                 )
                 continue
+            if ime_active and not event.ime_open:
+                flush_ime()
+            if event.ime_open:
+                flush_type()
+                if not ime_active:
+                    ime_active = True
+                    ime_window = event.window_title
+                elif event.window_title != ime_window:
+                    flush_ime()
+                    ime_active = True
+                    ime_window = event.window_title
+                if ime_composition and not event.ime_composition:
+                    if event.ime_commit:
+                        ime_commits.append(event.ime_commit)
+                    ime_composition = ""
+                else:
+                    ime_composition = event.ime_composition
+                if event.vk == VK_SPACE:
+                    raw = "Space"
+                else:
+                    raw = (
+                        vk_to_char(event.vk or 0, shift="Shift" in modifiers)
+                        or vk_name(event.vk or 0)
+                    )
+                ime_keys.append(raw)
                 continue
             if event.window_title != pending_window and pending:
                 flush_type()
@@ -242,12 +301,24 @@ def build_steps(
         if event.kind == "key_up":
             if is_modifier(event.vk or 0):
                 modifiers.discard(vk_name(event.vk or 0))
-            elif event.vk in skip_vk:
+                continue
+            if event.vk in skip_vk:
                 skip_vk.discard(event.vk or 0)
+                continue
+            if ime_active and not event.ime_open:
+                flush_ime()
+            elif event.ime_open:
+                if ime_composition and not event.ime_composition:
+                    if event.ime_commit:
+                        ime_commits.append(event.ime_commit)
+                    ime_composition = ""
+                else:
+                    ime_composition = event.ime_composition
             continue
         if event.kind == "mouse_down":
             if event.offset() is None:
                 continue
+            flush_ime()
             flush_type()
             flush_type()
             if event.button != "left":
@@ -293,5 +364,6 @@ def build_steps(
             last_wheel_ts = event.ts
             continue
         # mouse_up and anything else: no step on its own
+    flush_ime()
     flush_type()
     return steps
