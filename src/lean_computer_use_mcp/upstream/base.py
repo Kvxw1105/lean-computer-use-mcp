@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 from lean_computer_use_mcp.errors import RealInputUnavailableError
 from lean_computer_use_mcp.models import AppInfo
+from lean_computer_use_mcp.upstream.win_input import WindowInfo, WindowStatus
 
 
 class UpstreamClient(ABC):
@@ -61,3 +62,27 @@ class UpstreamClient(ABC):
         input-injection implementation (see upstream.win_input).
         """
         raise RealInputUnavailableError("focus_window is not available on this client")
+
+    def window_status(self, app: str) -> WindowStatus:
+        """All matching windows with occlusion/ambiguity state.
+
+        Default: unavailable. Windows clients override with an
+        input-injection implementation (see upstream.win_input).
+        """
+        raise RealInputUnavailableError("window_status is not available on this client")
+
+    def activate_window(self, app: str, title: str | None = None) -> WindowInfo:
+        """Restore + foreground one window; never guess among ambiguous matches.
+
+        Default: unavailable. Windows clients override with an
+        input-injection implementation (see upstream.win_input).
+        """
+        raise RealInputUnavailableError("activate_window is not available on this client")
+
+    def maximize_window(self, app: str, title: str | None = None) -> WindowInfo:
+        """Restore + maximize + foreground one window; never guess among matches.
+
+        Default: unavailable. Windows clients override with an
+        input-injection implementation (see upstream.win_input).
+        """
+        raise RealInputUnavailableError("maximize_window is not available on this client")

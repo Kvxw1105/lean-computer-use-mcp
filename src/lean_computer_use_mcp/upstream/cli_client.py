@@ -9,7 +9,12 @@ import sys
 
 from lean_computer_use_mcp.errors import RealInputUnavailableError, UpstreamError
 from lean_computer_use_mcp.models import AppInfo
-from lean_computer_use_mcp.upstream.win_input import CtypesWin32Input, Win32Input
+from lean_computer_use_mcp.upstream.win_input import (
+    CtypesWin32Input,
+    WindowInfo,
+    WindowStatus,
+    Win32Input,
+)
 from lean_computer_use_mcp.upstream.base import UpstreamClient
 
 _APP_LINE_RE = re.compile(
@@ -268,3 +273,27 @@ class CliUpstreamClient(UpstreamClient):
                 "focus_window requires the Windows client (no win_input backend)"
             )
         self._win_input.focus_main_window(app)
+
+    def window_status(self, app: str) -> WindowStatus:
+        """All matching windows with occlusion/ambiguity state (Windows)."""
+        if self._win_input is None:
+            raise RealInputUnavailableError(
+                "window_status requires the Windows client (no win_input backend)"
+            )
+        return self._win_input.window_status(app)
+
+    def activate_window(self, app: str, title: str | None = None) -> WindowInfo:
+        """Restore + foreground one window (Windows); ambiguous matches raise."""
+        if self._win_input is None:
+            raise RealInputUnavailableError(
+                "activate_window requires the Windows client (no win_input backend)"
+            )
+        return self._win_input.activate_window(app, title)
+
+    def maximize_window(self, app: str, title: str | None = None) -> WindowInfo:
+        """Restore + maximize + foreground one window (Windows)."""
+        if self._win_input is None:
+            raise RealInputUnavailableError(
+                "maximize_window requires the Windows client (no win_input backend)"
+            )
+        return self._win_input.maximize_window(app, title)

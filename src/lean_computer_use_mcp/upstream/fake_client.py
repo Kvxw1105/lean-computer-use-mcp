@@ -5,6 +5,11 @@ from pathlib import Path
 
 from lean_computer_use_mcp.models import AppInfo
 from lean_computer_use_mcp.upstream.base import UpstreamClient
+from lean_computer_use_mcp.upstream.win_input import (
+    WindowCandidate,
+    WindowInfo,
+    WindowStatus,
+)
 
 _REPO_FIXTURES = Path(__file__).resolve().parents[3] / "examples" / "fixtures"
 
@@ -34,6 +39,22 @@ class FakeUpstreamClient(UpstreamClient):
 
     def focus_window(self, app: str) -> None:
         """No-op for the fake client (window-level action is Windows-only)."""
+
+    def window_status(self, app: str) -> WindowStatus:
+        """One unoccluded fake window per app for demos and tests."""
+        info = WindowInfo(hwnd=4242, left=0, top=0, width=1200, height=800)
+        candidate = WindowCandidate(info=info, title=app, occluded=False)
+        return WindowStatus(
+            app=app, candidates=(candidate,), main=candidate, ambiguous=False
+        )
+
+    def activate_window(self, app: str, title: str | None = None) -> WindowInfo:
+        """No-op for the fake client; returns the fake window."""
+        return WindowInfo(hwnd=4242, left=0, top=0, width=1200, height=800)
+
+    def maximize_window(self, app: str, title: str | None = None) -> WindowInfo:
+        """No-op for the fake client; returns the fake window."""
+        return WindowInfo(hwnd=4242, left=0, top=0, width=1200, height=800)
 
     def act_with_refresh(
         self,

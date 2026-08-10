@@ -180,7 +180,77 @@ Response:
 }
 ```
 
-### 1.5 `cu_metrics`
+### 1.5 `cu_window`
+
+Windows-only window-level management. No `state_id` is required: window
+management is a window-level action, not a content-level one (it does not
+touch controls inside the app).
+
+Inputs:
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `app` | string | required | Target app (process name or title substring) |
+| `action` | string | required | `list`, `activate`, `maximize` |
+| `title` | string | null | Optional case-insensitive title substring to pick one of several windows |
+
+Response (`list`):
+
+```json
+{
+  "ok": true,
+  "action": "list",
+  "app": "ChatGPT",
+  "main": {"title": "ChatGPT", "hwnd": 12345, "rect": {"left": 0, "top": 0, "width": 1200, "height": 800}, "occluded": false, "covered_by": []},
+  "candidates": [
+    {"title": "ChatGPT", "hwnd": 12345, "rect": {"left": 0, "top": 0, "width": 1200, "height": 800}, "occluded": false, "covered_by": []}
+  ],
+  "ambiguous": false
+}
+```
+
+- `candidates` lists every matching visible window, largest area first.
+- `main` is the largest candidate (the `find_main_window` strategy).
+- `occluded` is a **status, not an error**: true when another window's rect
+  fully covers this window (z-order heuristic, best effort). `covered_by`
+  lists the covering window titles. A covered window can still be activated.
+- `ambiguous` is true when several windows match; `activate`/`maximize`
+  **never guess** among them.
+
+Response (`activate` / `maximize` success):
+
+```json
+{
+  "ok": true,
+  "action": "activate",
+  "app": "ChatGPT",
+  "window": {"title": "ChatGPT", "hwnd": 12345, "rect": {"left": 0, "top": 0, "width": 1200, "height": 800}, "occluded": false, "covered_by": []},
+  "was_occluded": true,
+  "candidates": [],
+  "ambiguous": false,
+  "message": "was fully covered by Notepad; brought to foreground"
+}
+```
+
+Response (ambiguous target, no execution):
+
+```json
+{
+  "ok": false,
+  "error": "AMBIGUOUS_TARGET",
+  "action": "activate",
+  "app": "ChatGPT",
+  "candidates": [{"title": "ChatGPT"}, {"title": "ChatGPT - Settings"}],
+  "message": "2 windows match app 'ChatGPT' title ''; pass a unique window-title substring to pick one."
+}
+```
+
+`activate` restores (`SW_RESTORE`) and foregrounds the window; `maximize`
+restores, maximizes and foregrounds it. On the fake client both are no-ops
+that return the fake window. Errors: `APP_NOT_FOUND`, `AMBIGUOUS_TARGET`,
+`UNSUPPORTED_ACTION`, `REAL_INPUT_UNAVAILABLE`.
+
+### 1.6 `cu_metrics`
 
 Response:
 

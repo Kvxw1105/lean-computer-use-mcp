@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from lean_computer_use_mcp.errors import (
+    AmbiguousTargetError,
     AppNotFoundError,
     RealInputUnavailableError,
     UpstreamError,
@@ -60,6 +61,75 @@ class WindowInfo:
     height: int
 
 
+@dataclass(frozen=True)
+class WindowCandidate:
+    """One matching top-level window plus window-management state."""
+
+    info: WindowInfo
+    title: str
+    occluded: bool = False
+    covered_by: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict:
+        return {
+            "title": self.title,
+            "hwnd": self.info.hwnd,
+            "rect": {
+                "left": self.info.left,
+                "top": self.info.top,
+                "width": self.info.width,
+                "height": self.info.height,
+            },
+            "occluded": self.occluded,
+            "covered_by": list(self.covered_by),
+        }
+
+
+@dataclass(frozen=True)
+class WindowStatus:
+    """All matching windows for one app, largest first, plus occlusion info."""
+
+    app: str
+    candidates: tuple[WindowCandidate, ...]
+    main: WindowCandidate
+    ambiguous: bool
+
+
+def coverage_state(
+    target: WindowInfo, coverers: list[tuple[str, WindowInfo]]
+) -> tuple[bool, tuple[str, ...]]:
+    """Return (fully_covered, covering_titles) for a window rect.
+
+    ``coverers`` are (title, WindowInfo) pairs for windows above ``target`` in
+    z-order. A window counts as occluding only when its rect fully contains
+    the target rect. Pure and platform-neutral so unit tests need no Win32.
+    """
+    covered_by: list[str] = []
+    for title, window in coverers:
+        if (
+            window.left <= target.left
+            and window.top <= target.top
+            and window.left + window.width >= target.left + target.width
+            and window.top + window.height >= target.top + target.height
+        ):
+            covered_by.append(title)
+    return bool(covered_by), tuple(covered_by)
+
+
+def filter_candidates(
+    candidates: tuple[WindowCandidate, ...], title: str | None
+) -> tuple[WindowCandidate, ...]:
+    """Narrow candidates by a case-insensitive title substring.
+
+    An empty/None query keeps every candidate; zero or multiple matches are
+    the caller's ambiguity problem (never guess).
+    """
+    if not title or not title.strip():
+        return candidates
+    needle = title.strip().lower()
+    return tuple(c for c in candidates if needle in c.title.lower())
+
+
 def matches_app(exe_name: str, window_title: str, app: str) -> bool:
     """Pure matcher: app matches process name (with/without .exe) or title."""
     needle = app.strip().lower()
@@ -85,7 +155,15 @@ class Win32Input(Protocol):
 
     def find_main_window(self, app: str) -> WindowInfo: ...
 
+    def find_windows(self, app: str) -> list[WindowInfo]: ...
+
+    def window_status(self, app: str) -> WindowStatus: ...
+
     def focus_main_window(self, app: str) -> WindowInfo: ...
+
+    def activate_window(self, app: str, title: str | None = None) -> WindowInfo: ...
+
+    def maximize_window(self, app: str, title: str | None = None) -> WindowInfo: ...
 
     def click(
         self,
@@ -118,11 +196,16 @@ class CtypesWin32Input:
             except Exception:  # noqa: BLE001
                 pass
 
-    def find_main_window(self, app: str) -> WindowInfo:
+    def find_windows(self, app: str) -> list[WindowInfo]:
+        """Every titled visible window matching ``app``, largest area first.
+
+        Multi-instance apps (e.g. a splash plus a main window) return several
+        entries; the caller decides whether to pick the largest or ask.
+        """
         if not _IS_WINDOWS:
-            raise RealInputUnavailableError("real-input click requires Windows")
+            raise RealInputUnavailableError("window management requires Windows")
         exe_by_pid = self._process_names()
-        best: tuple[WindowInfo, int] | None = None
+        windows: list[WindowInfo] = []
         for (
             hwnd,
             pid,
@@ -134,9 +217,37 @@ class CtypesWin32Input:
         ) in self._titled_visible_windows():
             if not matches_app(exe_by_pid.get(pid, ""), title, app):
                 continue
-            area = (right - left) * (bottom - top)
-            if best is None or area > best[1]:
-                best = (
+            windows.append(
+                WindowInfo(
+                    hwnd=int(hwnd),
+                    left=int(left),
+                    top=int(top),
+                    width=int(right - left),
+                    height=int(bottom - top),
+                )
+            )
+        if not windows:
+            raise AppNotFoundError(f"real-input window not found for app {app!r}")
+        windows.sort(key=lambda w: w.width * w.height, reverse=True)
+        return windows
+
+    def find_main_window(self, app: str) -> WindowInfo:
+        return self.find_windows(app)[0]
+
+    def window_status(self, app: str) -> WindowStatus:
+        """All matching windows with z-order occlusion state.
+
+        EnumWindows enumerates top-level windows topmost-first, so every
+        entry before the target in that order may visually cover it.
+        """
+        entries = self._titled_visible_windows()
+        exe_by_pid = self._process_names()
+        matching: list[tuple[WindowInfo, int, str]] = []
+        for index, (hwnd, pid, title, left, top, right, bottom) in enumerate(entries):
+            if not matches_app(exe_by_pid.get(pid, ""), title, app):
+                continue
+            matching.append(
+                (
                     WindowInfo(
                         hwnd=int(hwnd),
                         left=int(left),
@@ -144,11 +255,62 @@ class CtypesWin32Input:
                         width=int(right - left),
                         height=int(bottom - top),
                     ),
-                    area,
+                    index,
+                    title,
                 )
-        if best is None:
+            )
+        if not matching:
             raise AppNotFoundError(f"real-input window not found for app {app!r}")
-        return best[0]
+        candidates: list[WindowCandidate] = []
+        for info, index, title in matching:
+            above: list[tuple[str, WindowInfo]] = []
+            for entry in entries[:index]:
+                _hwnd, _pid, entry_title, left, top, right, bottom = entry
+                above.append(
+                    (
+                        entry_title,
+                        WindowInfo(
+                            hwnd=int(_hwnd),
+                            left=int(left),
+                            top=int(top),
+                            width=int(right - left),
+                            height=int(bottom - top),
+                        ),
+                    )
+                )
+            occluded, covered_by = coverage_state(info, above)
+            candidates.append(
+                WindowCandidate(
+                    info=info, title=title, occluded=occluded, covered_by=covered_by
+                )
+            )
+        candidates.sort(
+            key=lambda c: c.info.width * c.info.height, reverse=True
+        )
+        main = candidates[0]
+        return WindowStatus(
+            app=app,
+            candidates=tuple(candidates),
+            main=main,
+            ambiguous=len(candidates) > 1,
+        )
+
+    def _resolve(
+        self, app: str, title: str | None
+    ) -> WindowCandidate:
+        """Pick exactly one window; never guess among several matches."""
+        status = self.window_status(app)
+        if title:
+            exact = [c for c in status.candidates if c.title == title]
+            if len(exact) == 1:
+                return exact[0]
+        narrowed = filter_candidates(status.candidates, title)
+        if len(narrowed) != 1:
+            raise AmbiguousTargetError(
+                f"{len(narrowed)} windows match app {app!r} title {title!r}: "
+                + ", ".join(c.title for c in narrowed)
+            )
+        return narrowed[0]
 
     def focus_main_window(self, app: str) -> WindowInfo:
         """Restore and foreground the app's main window (window-level action)."""
@@ -157,6 +319,22 @@ class CtypesWin32Input:
         self._user32.SetForegroundWindow(window.hwnd)
         time.sleep(0.2)
         return window
+
+    def activate_window(self, app: str, title: str | None = None) -> WindowInfo:
+        """Restore + foreground one window; ambiguous matches raise."""
+        chosen = self._resolve(app, title)
+        self._user32.ShowWindow(chosen.info.hwnd, 9)  # SW_RESTORE
+        self._user32.SetForegroundWindow(chosen.info.hwnd)
+        time.sleep(0.2)
+        return chosen.info
+
+    def maximize_window(self, app: str, title: str | None = None) -> WindowInfo:
+        """Restore + maximize + foreground one window; ambiguous matches raise."""
+        chosen = self._resolve(app, title)
+        self._user32.ShowWindow(chosen.info.hwnd, 3)  # SW_MAXIMIZE
+        self._user32.SetForegroundWindow(chosen.info.hwnd)
+        time.sleep(0.2)
+        return chosen.info
 
     def click(
         self,

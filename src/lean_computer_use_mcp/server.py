@@ -20,6 +20,7 @@ from lean_computer_use_mcp.record.overlay import Overlay, make_overlay
 from lean_computer_use_mcp.state.fingerprint import fingerprint
 from lean_computer_use_mcp.state.store import StateStore
 from lean_computer_use_mcp.upstream.base import UpstreamClient
+from lean_computer_use_mcp.upstream.win_input import filter_candidates
 from lean_computer_use_mcp.vision.base import (
     GroundingResult,
     VisionConfig,
@@ -44,6 +45,7 @@ _ACTION_TOOLS = {
     "secondary_action",
 }
 _VALID_OUTPUT_MODES = {"controls", "reading", "visual", "full"}
+_WINDOW_ACTIONS = {"list", "activate", "maximize"}
 
 
 class LeanComputerUse:
@@ -385,6 +387,115 @@ class LeanComputerUse:
             "stopped_reason": None,
         }
 
+    def window(
+        self, app: str, action: str, title: str | None = None
+    ) -> dict[str, Any]:
+        """Window-level management (Windows-only upstream capability).
+
+        ``list`` returns every matching window with occlusion state and an
+        ambiguity flag (no side effects). ``activate`` restores + foregrounds,
+        ``maximize`` restores + maximizes + foregrounds; both require exactly
+        one match after the optional case-insensitive ``title`` substring
+        filter and never guess among several windows.
+        """
+        started = time.time()
+        error_code: str | None = None
+        try:
+            if action not in _WINDOW_ACTIONS:
+                error_code = "UNSUPPORTED_ACTION"
+                return {
+                    "ok": False,
+                    "error": error_code,
+                    "action": action,
+                    "app": app,
+                    "message": (
+                        f"unknown window action: {action}; "
+                        f"expected one of {sorted(_WINDOW_ACTIONS)}"
+                    ),
+                }
+            status = self.upstream.window_status(app)
+            candidates = filter_candidates(status.candidates, title)
+            if action == "list":
+                response: dict[str, Any] = {
+                    "ok": True,
+                    "action": action,
+                    "app": app,
+                    "main": status.main.to_dict(),
+                    "candidates": [c.to_dict() for c in candidates],
+                    "ambiguous": len(candidates) > 1,
+                }
+            elif len(candidates) != 1:
+                error_code = "AMBIGUOUS_TARGET"
+                response = {
+                    "ok": False,
+                    "error": error_code,
+                    "action": action,
+                    "app": app,
+                    "candidates": [c.to_dict() for c in candidates],
+                    "message": (
+                        f"{len(candidates)} windows match app {app!r} "
+                        f"title {title!r}; pass a unique window-title "
+                        "substring to pick one."
+                    ),
+                }
+            else:
+                chosen = candidates[0]
+                if action == "activate":
+                    self.upstream.activate_window(app, chosen.title)
+                else:
+                    self.upstream.maximize_window(app, chosen.title)
+                after = self.upstream.window_status(app)
+                after_candidates = filter_candidates(after.candidates, chosen.title)
+                post = after_candidates[0] if after_candidates else after.main
+                messages: list[str] = []
+                if chosen.occluded:
+                    messages.append(
+                        "was fully covered by "
+                        + ", ".join(chosen.covered_by)
+                        + "; brought to foreground"
+                    )
+                response = {
+                    "ok": True,
+                    "action": action,
+                    "app": app,
+                    "window": post.to_dict(),
+                    "was_occluded": chosen.occluded,
+                    "candidates": [c.to_dict() for c in candidates],
+                    "ambiguous": False,
+                    "message": "; ".join(messages) or None,
+                }
+        except AppNotFoundError as exc:
+            error_code = exc.code
+            response = {
+                "ok": False,
+                "error": exc.code,
+                "action": action,
+                "app": app,
+                "message": str(exc),
+            }
+        except LeanComputerUseError as exc:
+            error_code = exc.code
+            response = {
+                "ok": False,
+                "error": exc.code,
+                "action": action,
+                "app": app,
+                "message": str(exc),
+            }
+        self.metrics.record(
+            tool="cu_window",
+            app=app,
+            action=action,
+            text_chars=len(json.dumps(response, ensure_ascii=False)),
+            image_bytes=0,
+            image_payloads=0,
+            nodes=len(response.get("candidates") or []),
+            truncated=False,
+            latency_ms=_elapsed_ms(started),
+            error=error_code,
+        )
+        return response
+
     def metrics_summary(self) -> dict[str, Any]:
         summary = self.metrics.summary()
         summary.update(self.store.stats())
@@ -398,6 +509,15 @@ class LeanComputerUse:
         def cu_find_app(query: str | None = None) -> dict[str, Any]:
             """List running apps with visible windows; optional name filter."""
             return engine.find_app(query)
+
+        @mcp.tool()
+        def cu_window(
+            app: str,
+            action: str,
+            title: str | None = None,
+        ) -> dict[str, Any]:
+            """Window-level management (Windows): list candidates with occlusion state, or activate/maximize one window by title substring."""
+            return engine.window(app, action, title)
 
         @mcp.tool()
         def cu_observe(
