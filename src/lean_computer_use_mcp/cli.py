@@ -6,8 +6,9 @@ import sys
 import time
 from pathlib import Path
 
+from lean_computer_use_mcp import __version__
 from lean_computer_use_mcp.config import Settings
-from lean_computer_use_mcp.diagnostics import run_doctor
+from lean_computer_use_mcp.diagnostics import UPSTREAM_PINNED_VERSION, run_doctor
 from lean_computer_use_mcp.memory.refine import (
     LlmRefiner,
     RefineSuggestions,
@@ -26,6 +27,14 @@ from lean_computer_use_mcp.upstream.fake_client import FakeUpstreamClient
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="lean-computer-use", description="Low-context Computer Use MCP facade"
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=(
+            f"lean-computer-use {__version__} "
+            f"(pinned upstream {UPSTREAM_PINNED_VERSION})"
+        ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

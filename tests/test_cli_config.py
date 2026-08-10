@@ -134,3 +134,17 @@ def test_config_ops_preserve_concurrent_external_writes(monkeypatch, tmp_path) -
         "https://b.test/v1",
         "https://c.test/v1",
     ]
+
+def test_cli_version_flag(capsys):
+    import pytest
+
+    from lean_computer_use_mcp import __version__
+    from lean_computer_use_mcp import cli
+    from lean_computer_use_mcp.diagnostics import UPSTREAM_PINNED_VERSION
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--version"])
+    assert exc_info.value.code == 0
+    out = capsys.readouterr().out
+    assert f"lean-computer-use {__version__}" in out
+    assert f"pinned upstream {UPSTREAM_PINNED_VERSION}" in out
