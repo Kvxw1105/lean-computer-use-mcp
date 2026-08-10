@@ -18,7 +18,7 @@ from lean_computer_use_mcp.models import StateSnapshot
 from lean_computer_use_mcp.parse.topk import filter_controls
 from lean_computer_use_mcp.parse.tree_parser import detect_truncation, parse_state
 from lean_computer_use_mcp.record.overlay import Overlay, make_overlay
-from lean_computer_use_mcp.state.fingerprint import fingerprint
+from lean_computer_use_mcp.state.fingerprint import fingerprint, image_fingerprint
 from lean_computer_use_mcp.state.store import StateStore
 from lean_computer_use_mcp.upstream.base import UpstreamClient
 from lean_computer_use_mcp.upstream.win_input import (
@@ -52,6 +52,15 @@ _ACTION_TOOLS = {
 }
 _VALID_OUTPUT_MODES = {"controls", "reading", "visual", "full"}
 _WINDOW_ACTIONS = {"list", "activate", "maximize"}
+
+
+def _tree_is_trivial(snapshot: StateSnapshot) -> bool:
+    """True when the UIA tree cannot distinguish states on its own.
+
+    Self-drawn apps expose an empty or near-empty tree (the same threshold
+    the vision fallback uses), so a constant tree fingerprint proves nothing.
+    """
+    return len(snapshot.controls) <= 2
 
 
 class LeanComputerUse:
@@ -227,7 +236,23 @@ class LeanComputerUse:
             gate = self._build_snapshot(
                 app, raw_gate, image_gate, budget=(nodes, depth, text)
             )
-            if gate.fingerprint != before.fingerprint:
+            # Tree fingerprint is the primary stale signal. When the tree is
+            # trivial (self-drawn apps), the screenshot fingerprint (computed
+            # locally, never sent to the model) takes over so an empty or
+            # constant UIA tree cannot silently defeat the freshness gate.
+            tree_changed = gate.fingerprint != before.fingerprint
+            image_changed = False
+            signal = "tree" if tree_changed else None
+            if (
+                not tree_changed
+                and _tree_is_trivial(before)
+                and before.image_fingerprint
+                and gate.image_fingerprint
+                and before.image_fingerprint != gate.image_fingerprint
+            ):
+                image_changed = True
+                signal = "image"
+            if tree_changed or image_changed:
                 self.store.put(gate)
                 self._record_act_error(
                     started,
@@ -241,6 +266,7 @@ class LeanComputerUse:
                     "ok": False,
                     "error": "STALE_STATE",
                     "current_state_id": gate.state_id,
+                    "signal": signal,
                     "message": (
                         f"State for app {app!r} changed since snapshot {before.state_id}; "
                         "re-observe before acting."
@@ -858,6 +884,8 @@ class LeanComputerUse:
             budget=budget,
         )
         snapshot.fingerprint = fingerprint(snapshot)
+        if image:
+            snapshot.image_fingerprint = image_fingerprint(image)
         vision_out: dict[str, Any] = {
             "engine": None,
             "triggered": False,
@@ -972,6 +1000,7 @@ class LeanComputerUse:
         )
         snapshot.fingerprint = fingerprint(snapshot)
         if image:
+            snapshot.image_fingerprint = image_fingerprint(image)
             path = self.images.store_bytes(image)
             snapshot.image_path = str(path)
             snapshot.image_bytes = len(image)

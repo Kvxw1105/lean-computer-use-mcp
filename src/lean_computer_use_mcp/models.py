@@ -67,6 +67,7 @@ class StateSnapshot:
     truncated_text: bool
     image_path: str | None = None
     image_bytes: int = 0
+    image_fingerprint: str = ""
     state_id: str | None = None
     created_at: float | None = None
     fingerprint: str = ""

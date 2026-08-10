@@ -5,6 +5,39 @@ import hashlib
 from lean_computer_use_mcp.models import StateSnapshot
 
 
+def image_fingerprint(image: bytes) -> str:
+    """Low-cost perceptual hash of a screenshot for stale-state gating.
+
+    Used only when the UIA tree is trivial (self-drawn apps such as JianYing):
+    the 9x8 grayscale dHash grid is robust to small pixel noise (cursor blink,
+    antialiasing) while still catching structural changes (new panel, content
+    swap). The source dimensions are included so a window resize changes the
+    fingerprint. The hash is compared locally only: it never leaves the
+    machine, never appears in responses, and never reaches metrics. Returns
+    ``""`` when the image cannot be decoded so callers can fall back to the
+    tree fingerprint alone.
+    """
+    try:
+        import io
+
+        from PIL import Image
+
+        with Image.open(io.BytesIO(image)) as img:
+            gray = img.convert("L")
+            size = gray.size
+            tiny = gray.resize((9, 8), Image.Resampling.LANCZOS)
+        pixels = tiny.tobytes()  # "L" mode: one byte per pixel
+        bits: list[str] = []
+        for row in range(8):
+            base = row * 9
+            for col in range(8):
+                bits.append("1" if pixels[base + col] > pixels[base + col + 1] else "0")
+        digest = hashlib.sha256("".join(bits).encode("ascii")).hexdigest()[:16]
+        return f"{size[0]}x{size[1]}:{digest}"
+    except Exception:  # noqa: BLE001 - unreadable image => fingerprint unavailable
+        return ""
+
+
 def fingerprint(snapshot: StateSnapshot) -> str:
     lines = [f"{snapshot.app}|{snapshot.window_title}|{snapshot.focused_element}"]
     for node in snapshot.controls:

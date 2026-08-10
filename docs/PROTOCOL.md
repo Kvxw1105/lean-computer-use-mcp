@@ -168,9 +168,20 @@ Response on stale state:
   "ok": false,
   "error": "STALE_STATE",
   "current_state_id": "e5f6a7b8",
+  "signal": "tree",
   "message": "State for app ChatGPT changed; re-observe before acting."
 }
 ```
+
+`signal` names which fingerprint rejected the plan: `"tree"` (accessibility
+tree changed) or `"image"` (screenshot fingerprint changed). `"image"` is
+only possible for apps with a trivial tree (<= 2 controls, the same threshold
+as the vision fallback): self-drawn apps such as JianYing expose an empty or
+constant UIA tree, so a local perceptual screenshot hash (9x8 grayscale
+dHash, computed and compared on this machine only - never sent to the model
+and never written to metrics) takes over the freshness gate. For ordinary
+apps the tree fingerprint is authoritative and screenshot noise (cursor
+blink, animation) never rejects a plan.
 
 ### 1.4 `cu_batch`
 
@@ -303,6 +314,8 @@ store. Metrics contain counts and sizes only, never screen text or image bytes.
    compares fingerprints. Any change (navigation, modal, window move, focus
    change, visible content) rejects with `STALE_STATE` and the live snapshot
    becomes the new current state. The action never runs on a changed tree.
+   When the tree is trivial (<= 2 controls), the screenshot fingerprint is
+   compared instead, so empty/constant UIA trees cannot defeat the gate.
 4. On a match, the action runs together with its own in-process snapshot (the
    upstream resolves `element_index` only against a snapshot captured in the
    same process). A post-action snapshot captured at the same budget becomes
