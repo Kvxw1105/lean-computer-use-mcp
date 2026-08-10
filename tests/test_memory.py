@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-
 from pathlib import Path
+
+import pytest
 
 from lean_computer_use_mcp.memory.extract import (
     component_id_from_step,
@@ -29,8 +29,8 @@ from lean_computer_use_mcp.models import Frame
 from lean_computer_use_mcp.record.model import (
     ElementRef,
     ElementTable,
-    Recording,
     RecordedStep,
+    Recording,
 )
 
 FIXTURES = Path(__file__).parent.parent / "examples" / "fixtures"
@@ -232,7 +232,10 @@ def test_compose_reuses_template_when_confident():
 
 
 def test_placeholder_steps_and_fill(tmp_path):
-    from lean_computer_use_mcp.memory.planner import fill_plan_values, placeholder_indices
+    from lean_computer_use_mcp.memory.planner import (
+        fill_plan_values,
+        placeholder_indices,
+    )
 
     path = tmp_path / "components.json"
     memory = Memory(path)

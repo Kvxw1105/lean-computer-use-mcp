@@ -4,7 +4,8 @@ Read-only benchmark: lists apps and takes accessibility snapshots; it never
 performs a desktop action.
 
 Usage:
-    uv run python benchmarks/m1_real_compare.py [--app ChatGPT] [--out benchmarks/results/m1-YYYY-MM-DD.jsonl]
+    uv run python benchmarks/m1_real_compare.py [--app ChatGPT] [--out
+    benchmarks/results/m1-YYYY-MM-DD.jsonl]
 
 Output:
     One JSONL record per measurement plus a summary record, and a printed table.
@@ -116,9 +117,37 @@ def main() -> int:
         ("upstream-read", READ_BUDGET),
     ]:
         records.append(measure_upstream(client, args.app, label, budget))
-    records.append(measure_facade(engine, args.app, "facade-controls", preset="control", output_mode="controls", max_results=20))
-    records.append(measure_facade(engine, args.app, "facade-reading", preset="read", output_mode="reading", max_results=20))
-    records.append(measure_facade(engine, args.app, "facade-visual", preset="control", output_mode="controls", include_screenshot=True, max_results=20))
+    records.append(
+        measure_facade(
+            engine,
+            args.app,
+            "facade-controls",
+            preset="control",
+            output_mode="controls",
+            max_results=20,
+        )
+    )
+    records.append(
+        measure_facade(
+            engine,
+            args.app,
+            "facade-reading",
+            preset="read",
+            output_mode="reading",
+            max_results=20,
+        )
+    )
+    records.append(
+        measure_facade(
+            engine,
+            args.app,
+            "facade-visual",
+            preset="control",
+            output_mode="controls",
+            include_screenshot=True,
+            max_results=20,
+        )
+    )
 
     default = records[0]
     facade_controls = records[3]
@@ -193,17 +222,25 @@ def main() -> int:
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     print(f"app={args.app} date={summary['date']}\n")
-    header = f"{'snapshot':<18}{'text':>9}{'image b64':>12}{'nodes':>7}{'model-visible':>16}{'latency':>9}"
+    header = (
+        f"{'snapshot':<18}{'text':>9}{'image b64':>12}{'nodes':>7}"
+        f"{'model-visible':>16}{'latency':>9}"
+    )
     print(header)
     for record in records:
         if record["kind"] == "summary":
             continue
         visible = visible_chars(record)
         text = record["text_chars"] if record["kind"] == "upstream" else record["model_text_chars"]
-        image = record["image_b64_chars"] if record["kind"] == "upstream" else record["model_image_chars"]
+        image = (
+            record["image_b64_chars"]
+            if record["kind"] == "upstream"
+            else record["model_image_chars"]
+        )
         nodes = record["nodes"] if record["kind"] == "upstream" else record["nodes_returned"]
         print(
-            f"{record['label']:<18}{text:>9}{image:>12}{nodes:>7}{visible:>16}{record['latency_ms']:>9}"
+            f"{record['label']:<18}{text:>9}{image:>12}{nodes:>7}"
+            f"{visible:>16}{record['latency_ms']:>9}"
         )
     print()
     for key, value in summary["reductions"].items():

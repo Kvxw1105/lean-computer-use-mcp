@@ -114,14 +114,20 @@ def config_lock(path: Path | None = None, timeout_seconds: float = 10.0) -> Iter
             import msvcrt  # type: ignore[import-not-found]
 
             fd = os.open(lock_path, os.O_RDWR | os.O_CREAT)
-            acquire = lambda: msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-            release = lambda: msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+            def acquire() -> None:
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+
+            def release() -> None:
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
         else:
             import fcntl  # type: ignore[import-not-found]
 
             fd = os.open(lock_path, os.O_RDWR | os.O_CREAT)
-            acquire = lambda: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            release = lambda: fcntl.flock(fd, fcntl.LOCK_UN)
+            def acquire() -> None:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+            def release() -> None:
+                fcntl.flock(fd, fcntl.LOCK_UN)
     except ImportError:  # no locking primitive on this platform: best effort
         yield
         return

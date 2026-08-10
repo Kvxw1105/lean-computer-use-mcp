@@ -19,7 +19,7 @@ from lean_computer_use_mcp.memory.enrich import (
     enrich_recording,
     parse_labels,
 )
-from lean_computer_use_mcp.record.model import ElementRef, Recording, RecordedStep
+from lean_computer_use_mcp.record.model import ElementRef, RecordedStep, Recording
 
 
 def _recording() -> Recording:
@@ -56,11 +56,26 @@ def test_parse_labels_accepts_valid_and_rejects_bad() -> None:
     content = json.dumps(
         {
             "steps": [
-                {"index": 1, "role": "text", "name": "preview subtitle", "description": "The preview canvas."},
-                {"index": 2, "role": "button", "name": "font-size", "description": "Opens the font size control."},
+                {
+                    "index": 1,
+                    "role": "text",
+                    "name": "preview subtitle",
+                    "description": "The preview canvas.",
+                },
+                {
+                    "index": 2,
+                    "role": "button",
+                    "name": "font-size",
+                    "description": "Opens the font size control.",
+                },
                 {"index": 99, "role": "button", "name": "ghost"},
                 {"index": 3, "role": "mystery", "name": "bad-role"},
-                {"index": 3, "role": "edit", "name": "size input", "description": "The numeric size field."},
+                {
+                    "index": 3,
+                    "role": "edit",
+                    "name": "size input",
+                    "description": "The numeric size field.",
+                },
             ]
         }
     )
@@ -72,7 +87,10 @@ def test_parse_labels_accepts_valid_and_rejects_bad() -> None:
 
 
 def test_parse_labels_recovers_json_from_fence_and_garbage() -> None:
-    content = "Sure! Here is the JSON:\n```json\n{\"steps\": [{\"index\": 1, \"role\": \"button\", \"name\": \"ok\"}]}\n```"
+    content = (
+        "Sure! Here is the JSON:\n```json\n"
+        '{"steps": [{"index": 1, "role": "button", "name": "ok"}]}\n```'
+    )
     result = parse_labels(content, step_count=2)
     assert result.named == 1
     assert parse_labels("not json at all", step_count=2).named == 0
@@ -91,9 +109,24 @@ def test_enrich_recording_only_fills_missing_targets() -> None:
     recording = _recording()
     result = EnrichmentResult(
         labels=[
-            StepLabel(index=1, role="text", name="preview subtitle", description="The preview canvas."),
-            StepLabel(index=2, role="slider", name="size slider", description="Overwrites nothing."),
-            StepLabel(index=3, role="edit", name="size input", description="The numeric size field."),
+            StepLabel(
+                index=1,
+                role="text",
+                name="preview subtitle",
+                description="The preview canvas.",
+            ),
+            StepLabel(
+                index=2,
+                role="slider",
+                name="size slider",
+                description="Overwrites nothing.",
+            ),
+            StepLabel(
+                index=3,
+                role="edit",
+                name="size input",
+                description="The numeric size field.",
+            ),
         ]
     )
     enriched = enrich_recording(recording, result)

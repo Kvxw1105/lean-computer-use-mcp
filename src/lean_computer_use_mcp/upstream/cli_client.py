@@ -13,13 +13,13 @@ from lean_computer_use_mcp.errors import (
     UpstreamTimeoutError,
 )
 from lean_computer_use_mcp.models import AppInfo
+from lean_computer_use_mcp.upstream.base import UpstreamClient
 from lean_computer_use_mcp.upstream.win_input import (
     CtypesWin32Input,
+    Win32Input,
     WindowInfo,
     WindowStatus,
-    Win32Input,
 )
-from lean_computer_use_mcp.upstream.base import UpstreamClient
 
 _APP_LINE_RE = re.compile(
     r"^(?P<name>.+?)\s+--\s+(?P<display>.+?)\s+\[(?P<flags>[^\]]*)\]$"

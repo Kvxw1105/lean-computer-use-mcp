@@ -27,8 +27,18 @@ class FakeVisionEngine:
     ) -> None:
         self.config = config or VisionConfig()
         self.elements = elements or [
-            GroundedElement(role="text", text="Export", frame=Frame(1820, 24, 44, 28), confidence=0.96),
-            GroundedElement(role="text", text="Drafts", frame=Frame(100, 60, 60, 24), confidence=0.91),
+            GroundedElement(
+                role="text",
+                text="Export",
+                frame=Frame(1820, 24, 44, 28),
+                confidence=0.96,
+            ),
+            GroundedElement(
+                role="text",
+                text="Drafts",
+                frame=Frame(100, 60, 60, 24),
+                confidence=0.91,
+            ),
         ]
 
     def ground(self, image_bytes: bytes, hint: str = "") -> GroundingResult:
@@ -66,10 +76,30 @@ class FakeLLMGroundingEngine(FakeVisionEngine):
         elements: list[GroundedElement] | None = None,
     ) -> None:
         default = [
-            GroundedElement(role="button", text="导出", frame=Frame(1820, 24, 44, 28), confidence=0.98),
-            GroundedElement(role="input", text="字号", frame=Frame(2706, 666, 109, 46), confidence=0.97),
-            GroundedElement(role="slider", text="", frame=Frame(2231, 684, 439, 9), confidence=0.95),
-            GroundedElement(role="button", text="字幕", frame=Frame(639, 87, 83, 76), confidence=0.99),
+            GroundedElement(
+                role="button",
+                text="导出",
+                frame=Frame(1820, 24, 44, 28),
+                confidence=0.98,
+            ),
+            GroundedElement(
+                role="input",
+                text="字号",
+                frame=Frame(2706, 666, 109, 46),
+                confidence=0.97,
+            ),
+            GroundedElement(
+                role="slider",
+                text="",
+                frame=Frame(2231, 684, 439, 9),
+                confidence=0.95,
+            ),
+            GroundedElement(
+                role="button",
+                text="字幕",
+                frame=Frame(639, 87, 83, 76),
+                confidence=0.99,
+            ),
         ]
         super().__init__(config, elements or default)
         self.calls: list[str] = []

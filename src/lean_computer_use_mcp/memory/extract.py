@@ -15,7 +15,7 @@ from lean_computer_use_mcp.memory.model import (
     slugify,
 )
 from lean_computer_use_mcp.models import Frame
-from lean_computer_use_mcp.record.model import Recording, RecordedStep
+from lean_computer_use_mcp.record.model import RecordedStep, Recording
 
 VALUE_PLACEHOLDER = "{value}"
 

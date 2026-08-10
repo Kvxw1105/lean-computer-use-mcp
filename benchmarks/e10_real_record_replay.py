@@ -51,7 +51,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--recording", required=True, help="recording JSON from `record`")
     parser.add_argument("--skill-dir", required=True, help="where compile writes SKILL.md")
-    parser.add_argument("--library", required=True, help="procedural memory file for compile/replay")
+    parser.add_argument(
+        "--library",
+        required=True,
+        help="procedural memory file for compile/replay",
+    )
     parser.add_argument("--metrics", required=True, help="JSONL metrics file for the replay")
     parser.add_argument("--dry-run", action="store_true", help="compile only; preview replay plan")
     parser.add_argument(
@@ -177,7 +181,10 @@ def main() -> int:
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     print(f"phase: compile ({skill_chars} skill chars, {len(recording.steps)} steps)")
-    print(f"phase: replay {len(rows)} calls -> {text_chars} model chars, {image_bytes} local image bytes, {stale} stale rejections")
+    print(
+        f"phase: replay {len(rows)} calls -> {text_chars} model chars, "
+        f"{image_bytes} local image bytes, {stale} stale rejections"
+    )
     print(tail)
     print(
         f"summary: model-visible {text_chars} chars vs upstream-equivalent "

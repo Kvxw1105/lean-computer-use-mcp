@@ -155,7 +155,6 @@ def test_rich_tree_ignores_screenshot_noise(settings):
 
 def test_stale_gate_signals_tree_when_tree_changes(settings):
     image = make_png(box=(0, 0))
-    upstream = EmptyTreeImageUpstream(FIXTURES, [image, image])
 
     class Flipping(EmptyTreeImageUpstream):
         def get_app_state(self, app, max_tree_nodes, max_tree_depth, text_limit):

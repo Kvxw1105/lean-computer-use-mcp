@@ -15,6 +15,9 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --all-extras
       - run: uv run pytest
+      - name: Lint (ruff)
+        run: uvx ruff check .
+
       - name: Release gates (no desktop required)
         run: |
           uv run python benchmarks/success_matrix.py

@@ -8,8 +8,8 @@ from lean_computer_use_mcp.models import ControlNode, Frame
 from lean_computer_use_mcp.record.model import (
     ElementTable,
     InputEvent,
-    Recording,
     RecordedStep,
+    Recording,
 )
 from lean_computer_use_mcp.record.replay import ReplayRunner
 from lean_computer_use_mcp.record.steps import build_steps

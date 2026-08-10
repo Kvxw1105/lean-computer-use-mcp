@@ -17,8 +17,8 @@ from typing import Any, Callable
 from lean_computer_use_mcp.record.model import (
     CONTENT_ACTIONS,
     ElementRef,
-    Recording,
     RecordedStep,
+    Recording,
 )
 from lean_computer_use_mcp.server import LeanComputerUse
 

@@ -86,4 +86,12 @@ def _parse_control(index: str, role: str, rest: str, depth: int) -> ControlNode 
         rest = rest[:value_pos].rstrip()
 
     name = rest.strip()
-    return ControlNode(index=index, role=role, name=name, depth=depth, value=value, actions=actions, frame=frame)
+    return ControlNode(
+        index=index,
+        role=role,
+        name=name,
+        depth=depth,
+        value=value,
+        actions=actions,
+        frame=frame,
+    )

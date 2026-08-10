@@ -26,7 +26,7 @@ import time
 from pathlib import Path
 
 from lean_computer_use_mcp.config import Settings
-from lean_computer_use_mcp.record.model import Recording, RecordedStep
+from lean_computer_use_mcp.record.model import RecordedStep, Recording
 from lean_computer_use_mcp.record.replay import ReplayRunner
 from lean_computer_use_mcp.server import LeanComputerUse
 from lean_computer_use_mcp.upstream.fake_client import FakeUpstreamClient

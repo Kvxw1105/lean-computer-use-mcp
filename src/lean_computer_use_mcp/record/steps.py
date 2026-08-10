@@ -8,6 +8,8 @@ a fallback for custom-rendered UIs.
 
 from __future__ import annotations
 
+from typing import Any
+
 from lean_computer_use_mcp.models import ControlNode, Frame
 from lean_computer_use_mcp.record.keys import (
     VK_RETURN,
@@ -24,8 +26,6 @@ from lean_computer_use_mcp.record.model import (
     InputEvent,
     RecordedStep,
 )
-
-from typing import Any
 
 #: Click-match tolerance in screenshot pixels when no frame contains the point.
 _CLICK_MARGIN = 24
@@ -86,7 +86,9 @@ def match_element(
         if node.frame is not None and point_in_frame(x, y, node.frame)
     ]
     if containing:
-        return min(containing, key=lambda node: node.frame.width * node.frame.height)  # type: ignore[union-attr]
+        return min(
+            containing, key=lambda node: node.frame.width * node.frame.height
+        )  # type: ignore[union-attr]
     nearest: tuple[ControlNode, float] | None = None
     for node in elements:
         if node.frame is None:

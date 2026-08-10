@@ -16,7 +16,11 @@ def diff(old: StateSnapshot, new: StateSnapshot) -> DeltaResult:
         (before, after)
         for key, before in old_map.items()
         if (after := new_map.get(key)) is not None
-        and (before.value != after.value or before.actions != after.actions or before.frame != after.frame)
+        and (
+            before.value != after.value
+            or before.actions != after.actions
+            or before.frame != after.frame
+        )
     ]
 
     modal_detected = any(

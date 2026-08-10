@@ -6,6 +6,7 @@ import json
 import re
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 from PIL import Image
 
@@ -18,7 +19,6 @@ from lean_computer_use_mcp.vision.base import (
     VisionProvider,
 )
 from lean_computer_use_mcp.vision.pool import ProviderPool
-from urllib.parse import urlparse
 
 
 def _host(api_base: str) -> str:
@@ -26,10 +26,13 @@ def _host(api_base: str) -> str:
 
 _SYSTEM_PROMPT = """You are a screen-parsing engine for desktop UI automation.
 Analyze the screenshot and return ONLY one JSON object with this exact shape:
-{"elements": [{"role": "button|text|icon|input|slider|menu_item|checkbox|other", "text": "short label or empty", "x": 0, "y": 0, "width": 0, "height": 0, "confidence": 0.0}]}
+{"elements": [{"role": "button|text|icon|input|slider|menu_item|checkbox|other",
+"text": "short label or empty", "x": 0, "y": 0, "width": 0, "height": 0,
+"confidence": 0.0}]}
 Rules:
 - Coordinates are pixel coordinates in the screenshot you were given (x, y = top-left of the box).
-- Cover every interactive element that matches the task hint; include text labels for buttons when visible.
+- Cover every interactive element that matches the task hint; include text
+  labels for buttons when visible.
 - One element per box; never merge separate buttons.
 - Confidence 0.0-1.0 for how sure you are the box is right.
 - No markdown, no commentary, no code fences."""
@@ -42,7 +45,10 @@ def _downscale(image: Image.Image, max_side: int) -> Image.Image:
     if longest <= max_side:
         return image
     scale = max_side / longest
-    return image.resize((max(1, round(width * scale)), max(1, round(height * scale))), Image.LANCZOS)
+    return image.resize(
+        (max(1, round(width * scale)), max(1, round(height * scale))),
+        Image.LANCZOS,
+    )
 
 
 def _parse_elements(text: str, threshold: float, max_elements: int) -> list[GroundedElement]:
@@ -104,7 +110,11 @@ class LLMGroundingEngine:
         if self.config.providers:
             model = self.config.model or ""
             return [
-                provider if provider.model else VisionProvider(provider.api_base, provider.api_key, model)
+                (
+                    provider
+                    if provider.model
+                    else VisionProvider(provider.api_base, provider.api_key, model)
+                )
                 for provider in self.config.providers
             ]
         if self.config.api_base and self.config.api_key and self.config.model:
@@ -144,7 +154,9 @@ class LLMGroundingEngine:
         url = provider.api_base.rstrip("/") + "/chat/completions"
         headers = {"Authorization": f"Bearer {provider.api_key}"}
         if self.transport is not None:
-            with httpx.Client(transport=self.transport, timeout=self.config.timeout_seconds) as client:
+            with httpx.Client(
+                transport=self.transport, timeout=self.config.timeout_seconds
+            ) as client:
                 response = client.post(url, headers=headers, json=payload)
         else:
             with httpx.Client(timeout=self.config.timeout_seconds) as client:
@@ -195,9 +207,15 @@ class LLMGroundingEngine:
             ) from last_exc
 
         try:
-            parsed = _parse_elements(content, self.config.confidence_threshold, self.config.max_elements)
+            parsed = _parse_elements(
+                content,
+                self.config.confidence_threshold,
+                self.config.max_elements,
+            )
         except (KeyError, IndexError, ValueError) as exc:
-            raise VisionEngineUnavailable(f"llm grounding returned an unexpected payload: {exc}") from exc
+            raise VisionEngineUnavailable(
+                f"llm grounding returned an unexpected payload: {exc}"
+            ) from exc
         elements = [
             GroundedElement(
                 role=element.role,

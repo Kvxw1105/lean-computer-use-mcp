@@ -696,10 +696,10 @@ def _cmd_config(args: argparse.Namespace) -> int:
     from lean_computer_use_mcp.config_store import (
         default_config_path,
         load_config,
+        ping_endpoint,
         providers_from_config,
         public_provider_view,
         update_config,
-        ping_endpoint,
     )
 
     config_path = Path(args.config_path) if args.config_path else default_config_path()
@@ -713,15 +713,24 @@ def _cmd_config(args: argparse.Namespace) -> int:
     if args.action == "list":
         if not providers:
             print(f"No endpoints configured ({config_path}).")
-            print("Add one: lean-computer-use config add --api-base <url> --api-key <key> [--model <m>]")
+            print(
+                "Add one: lean-computer-use config add --api-base <url> "
+                "--api-key <key> [--model <m>]"
+            )
             print("Or open the web panel: lean-computer-use config-ui")
             return 0
         print(f"Config file: {config_path}")
-        print(f"Engine: {config.get('engine', 'llm')} | Default model: {config.get('model', '') or '(none)'}")
+        print(
+            f"Engine: {config.get('engine', 'llm')} | "
+            f"Default model: {config.get('model', '') or '(none)'}"
+        )
         for view in public_provider_view(providers_from_config(config)):
             prefix = "-> " if view["index"] == 0 else "   "
             model = view["model"] or f"(inherit {config.get('model') or 'default'})"
-            print(f"{prefix}[{view['index']}] {view['host']} | model={model} | key={view['key_masked']}")
+            print(
+                f"{prefix}[{view['index']}] {view['host']} | model={model} "
+                f"| key={view['key_masked']}"
+            )
         return 0
 
     if args.action == "add":
@@ -832,10 +841,11 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
 
 def _cmd_config_ui(args: argparse.Namespace) -> int:
     """Launch the local web panel for visual API configuration."""
-    from lean_computer_use_mcp.config_store import default_config_path
-    from lean_computer_use_mcp.config_ui import ConfigUI
     import threading
     import webbrowser
+
+    from lean_computer_use_mcp.config_store import default_config_path
+    from lean_computer_use_mcp.config_ui import ConfigUI
 
     config_path = Path(args.config_path) if args.config_path else default_config_path()
     ui = ConfigUI(config_path=config_path, port=args.port)
@@ -880,7 +890,10 @@ def _cmd_recall(args: argparse.Namespace) -> int:
     if args.dry_run or not args.run:
         print("Dry-run: nothing executed. Use --run to execute.")
         return 0
-    from lean_computer_use_mcp.memory.planner import fill_plan_values, placeholder_indices
+    from lean_computer_use_mcp.memory.planner import (
+        fill_plan_values,
+        placeholder_indices,
+    )
 
     indices = placeholder_indices(plan)
     if indices:

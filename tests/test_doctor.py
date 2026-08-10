@@ -5,8 +5,6 @@ from __future__ import annotations
 import shutil
 import sys
 
-import pytest
-
 from lean_computer_use_mcp import cli
 from lean_computer_use_mcp.diagnostics import (
     DoctorReport,

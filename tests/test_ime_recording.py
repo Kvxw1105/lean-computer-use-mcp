@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lean_computer_use_mcp.record.keys import VK_RETURN, VK_SPACE
+from lean_computer_use_mcp.record.keys import VK_SPACE
 from lean_computer_use_mcp.record.model import (
     InputEvent,
-    Recording,
     RecordedStep,
+    Recording,
 )
 from lean_computer_use_mcp.record.replay import ReplayRunner
 from lean_computer_use_mcp.record.steps import build_steps
@@ -310,7 +310,6 @@ def test_replay_ime_with_text_uses_type_text_path():
 
 
 def FakeSettings():
-    from tempfile import TemporaryDirectory
 
     from lean_computer_use_mcp.config import Settings
 

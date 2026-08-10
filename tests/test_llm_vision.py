@@ -11,7 +11,11 @@ from lean_computer_use_mcp.vision.base import (
     VisionEngineUnavailable,
     VisionProvider,
 )
-from lean_computer_use_mcp.vision.llm import LLMGroundingEngine, _parse_elements, _downscale
+from lean_computer_use_mcp.vision.llm import (
+    LLMGroundingEngine,
+    _downscale,
+    _parse_elements,
+)
 from lean_computer_use_mcp.vision.pool import ProviderPool
 
 
@@ -66,7 +70,9 @@ def _engine(handler, config: VisionConfig | None = None) -> LLMGroundingEngine:
 
 def test_llm_requires_full_config() -> None:
     with pytest.raises(VisionEngineUnavailable):
-        LLMGroundingEngine(VisionConfig(engine="llm", api_base="https://x", api_key="k")).ground(_png_bytes())
+        LLMGroundingEngine(
+            VisionConfig(engine="llm", api_base="https://x", api_key="k")
+        ).ground(_png_bytes())
 
 
 def test_llm_parses_elements_and_rescales_coordinates() -> None:
@@ -82,7 +88,8 @@ def test_llm_parses_elements_and_rescales_coordinates() -> None:
                         "message": {
                             "content": (
                                 '{"elements": [{"role": "button", "text": "Export", '
-                                '"x": 100, "y": 50, "width": 20, "height": 10, "confidence": 0.95}]}'
+                                '"x": 100, "y": 50, "width": 20, "height": 10, '
+                                '"confidence": 0.95}]}'
                             )
                         }
                     }
@@ -139,8 +146,10 @@ def test_llm_filters_low_confidence() -> None:
                         "message": {
                             "content": (
                                 '{"elements": ['
-                                '{"role": "button", "text": "A", "x": 0, "y": 0, "width": 1, "height": 1, "confidence": 0.9},'
-                                '{"role": "button", "text": "B", "x": 0, "y": 0, "width": 1, "height": 1, "confidence": 0.2}'
+                                '{"role": "button", "text": "A", "x": 0, "y": 0, '
+                                '"width": 1, "height": 1, "confidence": 0.9},'
+                                '{"role": "button", "text": "B", "x": 0, "y": 0, '
+                                '"width": 1, "height": 1, "confidence": 0.2}'
                                 "]}"
                             )
                         }

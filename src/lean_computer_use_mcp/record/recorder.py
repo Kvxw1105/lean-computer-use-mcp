@@ -19,9 +19,9 @@ from lean_computer_use_mcp.parse.tree_parser import parse_state
 from lean_computer_use_mcp.record.model import (
     ElementTable,
     InputEvent,
+    RecordedStep,
     Recording,
     RecordingMetrics,
-    RecordedStep,
 )
 from lean_computer_use_mcp.record.steps import build_steps
 from lean_computer_use_mcp.upstream.base import UpstreamClient

@@ -18,7 +18,10 @@ def _snapshot(app: str, text: str) -> StateSnapshot:
 
 
 def test_modal_is_detected(control_state_text, after_modal_state_text):
-    delta = diff(_snapshot("ChatGPT", control_state_text), _snapshot("ChatGPT", after_modal_state_text))
+    delta = diff(
+        _snapshot("ChatGPT", control_state_text),
+        _snapshot("ChatGPT", after_modal_state_text),
+    )
     assert delta.modal_detected is True
     assert any(node.role == "对话框" for node in delta.added)
     assert delta.focused_changed is True

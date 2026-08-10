@@ -21,10 +21,10 @@ from urllib.parse import parse_qs, urlparse
 from lean_computer_use_mcp.config_store import (
     EndpointTestResult,
     load_config,
-    public_provider_view,
-    providers_from_config,
-    update_config,
     ping_endpoint,
+    providers_from_config,
+    public_provider_view,
+    update_config,
 )
 
 _HTML_PATH = Path(__file__).parent / "config_ui.html"
@@ -234,7 +234,12 @@ class _ConfigUIHandler(BaseHTTPRequestHandler):
 class ConfigUI:
     """Owns the HTTP server and the per-session token."""
 
-    def __init__(self, config_path: Path | None = None, host: str = "127.0.0.1", port: int = 0) -> None:
+    def __init__(
+        self,
+        config_path: Path | None = None,
+        host: str = "127.0.0.1",
+        port: int = 0,
+    ) -> None:
         self.config_path = config_path
         _ConfigUIHandler.token = secrets.token_urlsafe(16)
         _ConfigUIHandler.config_path = config_path

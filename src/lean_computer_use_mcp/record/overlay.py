@@ -41,6 +41,7 @@ _SW_SHOWNOACTIVATE = 4
 _WM_APP = 0x8000
 _WM_HIDE = _WM_APP + 1
 _WM_UPDATE = _WM_APP + 2
+_WM_QUIT = 0x0012  # WM_QUIT, posted by PostQuitMessage
 
 # Layered-window compositing.
 _AC_SRC_ALPHA = 0x01
@@ -278,7 +279,6 @@ def render_edge(
     band = max(2, min(band, max(2, length // 2)))
     inner = max(0, min(inner, band - 1))
     horizontal = orientation in ("top", "bottom")
-    size = (length, band) if horizontal else (band, length)
 
     alpha = Image.new("L", (1, band))
     for i in range(band):

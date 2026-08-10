@@ -18,9 +18,9 @@ import json
 import re
 from typing import Any
 
+from lean_computer_use_mcp.memory.llm_client import TextLlmClient
 from lean_computer_use_mcp.memory.model import MemoryLibrary
 from lean_computer_use_mcp.memory.retrieve import RecallPlan
-from lean_computer_use_mcp.memory.llm_client import TextLlmClient
 from lean_computer_use_mcp.vision.base import VisionProvider
 from lean_computer_use_mcp.vision.pool import ProviderPool
 

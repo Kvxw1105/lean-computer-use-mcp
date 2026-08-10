@@ -11,9 +11,9 @@ from lean_computer_use_mcp.record.compile import (
 from lean_computer_use_mcp.record.model import (
     ElementRef,
     ElementTable,
+    RecordedStep,
     Recording,
     RecordingMetrics,
-    RecordedStep,
 )
 
 

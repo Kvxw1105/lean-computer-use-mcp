@@ -19,7 +19,7 @@ from lean_computer_use_mcp.memory.extract import (
 )
 from lean_computer_use_mcp.memory.model import Component, MemoryLibrary, TaskTemplate
 from lean_computer_use_mcp.memory.retrieve import RecallPlan, compose_plan, search
-from lean_computer_use_mcp.record.model import Recording, RecordedStep
+from lean_computer_use_mcp.record.model import RecordedStep, Recording
 
 #: Cap for learned effect names per component.
 _MAX_EFFECT = 8

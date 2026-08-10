@@ -6,9 +6,9 @@ from lean_computer_use_mcp.record.model import (
     ElementRef,
     ElementTable,
     InputEvent,
+    RecordedStep,
     Recording,
     RecordingMetrics,
-    RecordedStep,
 )
 
 __all__ = [

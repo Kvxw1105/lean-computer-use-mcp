@@ -1,16 +1,18 @@
 from __future__ import annotations
+
 import base64
 import json
 import time
 from typing import Any
+
 from mcp.server.fastmcp import FastMCP
+
 from lean_computer_use_mcp import __version__
 from lean_computer_use_mcp.config import Settings
 from lean_computer_use_mcp.diff.engine import diff
 from lean_computer_use_mcp.errors import (
     AppNotFoundError,
     LeanComputerUseError,
-    RealInputFailedError,
     StaleStateError,
 )
 from lean_computer_use_mcp.media.cache import ImageCache
@@ -209,7 +211,10 @@ class LeanComputerUse:
                     return {
                         "ok": False,
                         "error": "ELEMENT_NOT_FOUND",
-                        "message": "click_method 'real' requires x/y only (element_index is not supported)",
+                        "message": (
+                            "click_method 'real' requires x/y only "
+                            "(element_index is not supported)",
+                        ),
                     }
             if action == "drag":
                 missing = [
@@ -572,7 +577,8 @@ class LeanComputerUse:
             action: str,
             title: str | None = None,
         ) -> dict[str, Any]:
-            """Window-level management (Windows): list candidates with occlusion state, or activate/maximize one window by title substring."""
+            """Window-level management (Windows): list candidates with occlusion
+            state, or activate/maximize one window by title substring."""
             return engine.window(app, action, title)
 
         @mcp.tool()
@@ -856,7 +862,12 @@ class LeanComputerUse:
             result = engine.ground(image, hint=intent)
         except VisionEngineUnavailable as exc:
             self._vision_upgrade_unavailable = True
-            return None, {"attempted": True, "suppressed": True, "reason": "unavailable", "error": str(exc)}
+            return None, {
+                "attempted": True,
+                "suppressed": True,
+                "reason": "unavailable",
+                "error": str(exc),
+            }
         self._last_vision_upgrade_at = time.monotonic()
         return result, None
 
@@ -963,7 +974,10 @@ class LeanComputerUse:
             nodes=len(controls),
             truncated=tree_truncated or text_truncated,
             latency_ms=latency_ms,
-            vision_calls=(1 if vision_out.get("triggered") else 0) + (1 if vision_out.get("escalated") else 0),
+            vision_calls=(
+                (1 if vision_out.get("triggered") else 0)
+                + (1 if vision_out.get("escalated") else 0)
+            ),
             vision_image_bytes=vision_out.get("image_bytes") or 0,
             vision_latency_ms=vision_out.get("latency_ms") or 0,
             vision_elements=len(vision_out.get("elements") or []),

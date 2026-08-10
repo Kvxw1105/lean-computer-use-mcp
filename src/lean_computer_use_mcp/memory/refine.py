@@ -19,8 +19,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from lean_computer_use_mcp.memory.library import Memory
-from lean_computer_use_mcp.memory.model import MemoryLibrary, TaskTemplate, slugify
 from lean_computer_use_mcp.memory.llm_client import TextLlmClient
+from lean_computer_use_mcp.memory.model import MemoryLibrary, TaskTemplate, slugify
 from lean_computer_use_mcp.vision.base import VisionProvider
 from lean_computer_use_mcp.vision.pool import ProviderPool
 
@@ -182,12 +182,20 @@ def parse_suggestions(text: str) -> RefineSuggestions:
     for item in data.get("aliases", []) or []:
         if isinstance(item, dict) and item.get("component_id") and item.get("alias"):
             suggestions.aliases.append(
-                AliasSuggestion(str(item["component_id"]), str(item["alias"]), str(item.get("reason", "")))
+                AliasSuggestion(
+                    str(item["component_id"]),
+                    str(item["alias"]),
+                    str(item.get("reason", "")),
+                )
             )
     for item in data.get("merges", []) or []:
         if isinstance(item, dict) and item.get("keep_id") and item.get("into_id"):
             suggestions.merges.append(
-                MergeSuggestion(str(item["keep_id"]), str(item["into_id"]), str(item.get("reason", "")))
+                MergeSuggestion(
+                    str(item["keep_id"]),
+                    str(item["into_id"]),
+                    str(item.get("reason", "")),
+                )
             )
     for item in data.get("descriptions", []) or []:
         if isinstance(item, dict) and item.get("component_id") and item.get("description"):

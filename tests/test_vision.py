@@ -14,7 +14,11 @@ from lean_computer_use_mcp.vision.base import (
     VisionEngineUnavailable,
 )
 from lean_computer_use_mcp.vision.fake import FakeVisionEngine
-from lean_computer_use_mcp.vision.ocr import RapidOCREngine, WinRTOCREngine, build_engine
+from lean_computer_use_mcp.vision.ocr import (
+    RapidOCREngine,
+    WinRTOCREngine,
+    build_engine,
+)
 
 
 def _png_bytes(width: int = 64, height: int = 48) -> bytes:

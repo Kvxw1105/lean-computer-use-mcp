@@ -19,7 +19,7 @@ from lean_computer_use_mcp.memory.llm_client import TextLlmClient
 from lean_computer_use_mcp.memory.llm_recall import LlmRecallMapper
 from lean_computer_use_mcp.memory.model import MemoryLibrary
 from lean_computer_use_mcp.memory.refine import LlmRefiner
-from lean_computer_use_mcp.record.model import Recording, RecordedStep
+from lean_computer_use_mcp.record.model import RecordedStep, Recording
 from lean_computer_use_mcp.vision.base import VisionProvider
 from lean_computer_use_mcp.vision.pool import ProviderPool
 

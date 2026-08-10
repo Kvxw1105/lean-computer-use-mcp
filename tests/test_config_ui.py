@@ -8,8 +8,8 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
-from lean_computer_use_mcp.config_ui import ConfigUI
 from lean_computer_use_mcp.config_store import save_config
+from lean_computer_use_mcp.config_ui import ConfigUI
 
 
 @pytest.fixture()

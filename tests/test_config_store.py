@@ -13,10 +13,10 @@ from lean_computer_use_mcp.config_store import (
     host_of,
     load_config,
     mask_key,
+    ping_endpoint,
     providers_from_config,
     public_provider_view,
     save_config,
-    ping_endpoint,
     update_config,
 )
 from lean_computer_use_mcp.vision.base import VisionProvider

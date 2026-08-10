@@ -50,7 +50,6 @@ def test_wave_factor_range_and_static_default():
 
 
 def test_wave_factor_is_periodic_in_phase():
-    import math
 
     a = _wave_factor(0.25, phase=0.0, waves=2.5, amplitude=0.3)
     b = _wave_factor(0.25, phase=1.0, waves=2.5, amplitude=0.3)

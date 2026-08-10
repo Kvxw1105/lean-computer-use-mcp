@@ -27,9 +27,8 @@ import re
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from lean_computer_use_mcp.record.model import ElementRef, Recording, RecordedStep
-
 from lean_computer_use_mcp.memory.llm_client import TextLlmClient
+from lean_computer_use_mcp.record.model import ElementRef, RecordedStep, Recording
 from lean_computer_use_mcp.vision.base import VisionProvider
 from lean_computer_use_mcp.vision.pool import ProviderPool
 
@@ -75,7 +74,8 @@ coordinates. Your job: give each step a semantic role and target name so the
 workflow can be reused as atomic building blocks by future tasks.
 
 Return ONLY one JSON object with this exact shape:
-{"steps": [{"index": 1, "role": "button", "name": "font-size", "description": "Opens the font size control."}]}
+{"steps": [{"index": 1, "role": "button", "name": "font-size",
+"description": "Opens the font size control."}]}
 
 Rules:
 - index must match one of the step indices in the input (1-based).

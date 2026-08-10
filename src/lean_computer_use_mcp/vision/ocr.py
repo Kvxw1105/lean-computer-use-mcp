@@ -52,7 +52,6 @@ class WinRTOCREngine:
                 "winrt_ocr requires optional winrt packages "
                 "(pip install screen-ocr[winrt] winrt-windows-globalization)"
             ) from exc
-        import asyncio
         from concurrent.futures import ThreadPoolExecutor
 
         engine = None
@@ -93,7 +92,9 @@ class WinRTOCREngine:
         started = time.perf_counter()
         engine, executor = self._ensure_engine()
         width, height = _image_size(image_bytes)
-        result = executor.submit(self._run_async, engine, Image.open(io.BytesIO(image_bytes))).result()
+        result = executor.submit(
+            self._run_async, engine, Image.open(io.BytesIO(image_bytes))
+        ).result()
         elements: list[GroundedElement] = []
         for line in result.lines:
             for word in line.words:

@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from lean_computer_use_mcp.record.model import CONTENT_ACTIONS, Recording, RecordedStep
+from lean_computer_use_mcp.record.model import CONTENT_ACTIONS, RecordedStep, Recording
 
 
 def evidence_badges(step: RecordedStep) -> str:

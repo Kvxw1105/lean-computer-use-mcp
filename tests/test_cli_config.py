@@ -138,8 +138,7 @@ def test_config_ops_preserve_concurrent_external_writes(monkeypatch, tmp_path) -
 def test_cli_version_flag(capsys):
     import pytest
 
-    from lean_computer_use_mcp import __version__
-    from lean_computer_use_mcp import cli
+    from lean_computer_use_mcp import __version__, cli
     from lean_computer_use_mcp.diagnostics import UPSTREAM_PINNED_VERSION
 
     with pytest.raises(SystemExit) as exc_info:

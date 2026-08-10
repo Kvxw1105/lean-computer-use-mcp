@@ -21,7 +21,15 @@ from lean_computer_use_mcp.config import Settings
 from lean_computer_use_mcp.server import LeanComputerUse
 from lean_computer_use_mcp.upstream.cli_client import CliUpstreamClient
 
-_ACTION_TOOLS = {"click", "set_value", "scroll", "type_text", "press_key", "perform_secondary_action", "drag"}
+_ACTION_TOOLS = {
+    "click",
+    "set_value",
+    "scroll",
+    "type_text",
+    "press_key",
+    "perform_secondary_action",
+    "drag",
+}
 
 
 class CountingUpstream(CliUpstreamClient):
@@ -93,10 +101,15 @@ def main() -> int:
     engine4, upstream4 = new_engine(tmp / "unsupported")
     observed4 = engine4.observe(args.app, preset="control")
     result4 = engine4.act(args.app, observed4["state_id"], "drag")
-    results.append({"case": "unsupported-action", "ok": result4["ok"], "error": result4.get("error")})
+    results.append(
+        {"case": "unsupported-action", "ok": result4["ok"], "error": result4.get("error")}
+    )
 
     total_action_calls = (
-        upstream.action_calls + upstream2.action_calls + upstream3.action_calls + upstream4.action_calls
+        upstream.action_calls
+        + upstream2.action_calls
+        + upstream3.action_calls
+        + upstream4.action_calls
     )
     summary = engine.metrics_summary()
 
@@ -109,7 +122,15 @@ def main() -> int:
         json.dumps(
             {
                 key: summary[key]
-                for key in ("calls", "observe_calls", "action_calls", "errors", "stale_rejections", "avg_latency_ms", "nodes")
+                for key in (
+                    "calls",
+                    "observe_calls",
+                    "action_calls",
+                    "errors",
+                    "stale_rejections",
+                    "avg_latency_ms",
+                    "nodes",
+                )
             },
             ensure_ascii=False,
         )
