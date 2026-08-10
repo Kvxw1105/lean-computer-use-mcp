@@ -114,12 +114,32 @@ because custom-rendered apps (for example JianYing) ignore synthesized
   added internally, so HiDPI (200%) screenshots map correctly.
 - It moves the real cursor and may steal foreground focus: the skill must
   request it explicitly, never by default.
+- **Facade-level fallback**: if the upstream real path fails (no Win32
+  backend, window not found, timeout, Win32 error), the facade automatically
+  retries the same click through its own DPI-aware `CtypesWin32Input` using
+  the identical screenshot-pixel coordinate contract. Coordinates outside
+  the window rect are rejected (`REAL_INPUT_FAILED`, `reason:
+  "out_of_bounds"`) before any input is injected.
+- The success response adds a `real_input` object when
+  `click_method="real"`:
+
+  ```json
+  {"real_input": {"path": "upstream", "upstream_error": null}}
+  {"real_input": {"path": "fallback", "upstream_error": "real-input click requires the Windows client (no win_input backend)"}}
+  ```
+
+  `path` is `upstream` (the configured client executed the click) or
+  `fallback` (the facade's own backend executed it after an upstream
+  failure). Metrics rows for fallback clicks set `real_input_fallback: true`.
 
 Errors: `REAL_INPUT_UNAVAILABLE` when no Win32 input backend exists,
-`APP_NOT_FOUND` when no matching window is visible. The state gate and
-metrics accounting are identical to other `click` paths: a stale `state_id`
-is rejected before any input is injected, and the post-action snapshot
-records the same text/image/node metrics.
+`APP_NOT_FOUND` (`reason: "window_not_found"`) when no matching window is
+visible, `REAL_INPUT_FAILED` (`reason: "out_of_bounds"` or
+`"win32_error"`) when the click cannot execute, `UPSTREAM_ERROR` (`reason:
+"timeout"` on upstream timeouts). The state gate and metrics accounting are
+identical to other `click` paths: a stale `state_id` is rejected before any
+input is injected, and the post-action snapshot records the same
+text/image/node metrics.
 
 Response on success:
 
@@ -331,11 +351,15 @@ All tools return HTTP-like structured objects instead of throwing where possible
 {
   "ok": false,
   "error": "APP_NOT_FOUND",
-  "message": "No running visible window for app: Notepad"
+  "message": "No running visible window for app: Notepad",
+  "reason": "window_not_found"
 }
 ```
 
-Error codes are defined in [DESIGN.md](DESIGN.md#9-error-taxonomy).
+`reason` is an optional machine-readable cause (one of `window_not_found`,
+`timeout`, `out_of_bounds`, `win32_error`, ...) so a cheap model can route
+recovery without parsing free text; it is omitted when no specific cause
+applies. Error codes are defined in [DESIGN.md](DESIGN.md#9-error-taxonomy).
 
 
 ## 6. Record & Replay (CLI, outside MCP)

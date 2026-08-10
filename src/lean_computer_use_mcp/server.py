@@ -9,6 +9,7 @@ from lean_computer_use_mcp.diff.engine import diff
 from lean_computer_use_mcp.errors import (
     AppNotFoundError,
     LeanComputerUseError,
+    RealInputFailedError,
     StaleStateError,
 )
 from lean_computer_use_mcp.media.cache import ImageCache
@@ -20,7 +21,12 @@ from lean_computer_use_mcp.record.overlay import Overlay, make_overlay
 from lean_computer_use_mcp.state.fingerprint import fingerprint
 from lean_computer_use_mcp.state.store import StateStore
 from lean_computer_use_mcp.upstream.base import UpstreamClient
-from lean_computer_use_mcp.upstream.win_input import filter_candidates
+from lean_computer_use_mcp.upstream.win_input import (
+    CtypesWin32Input,
+    Win32Input,
+    check_click_bounds,
+    filter_candidates,
+)
 from lean_computer_use_mcp.vision.base import (
     GroundingResult,
     VisionConfig,
@@ -54,9 +60,16 @@ class LeanComputerUse:
         upstream: UpstreamClient,
         settings: Settings | None = None,
         overlay: Overlay | None = None,
+        real_input_fallback: Win32Input | None = None,
     ) -> None:
         self.settings = settings or Settings.from_env()
         self.upstream = upstream
+        # Facade-owned real-input backend: when the upstream's real path fails
+        # (unavailable, window not found, Win32 error), coordinate clicks
+        # fall back to this same-coordinate-contract implementation instead of
+        # returning a bare failure. Injectable for tests; CtypesWin32Input on
+        # Windows (DPI-aware, screenshot-pixel coordinates).
+        self._real_input_fallback_backend = real_input_fallback
         # Execution indicator: glows while an action executes and is always
         # hidden around snapshots so it never pollutes observed state.
         self._overlay = (
@@ -132,10 +145,10 @@ class LeanComputerUse:
             )
         except AppNotFoundError as exc:
             self._record_observe_error(started, app, output_mode, exc.code)
-            return {"ok": False, "error": exc.code, "message": str(exc)}
+            return self._error_response(exc)
         except LeanComputerUseError as exc:
             self._record_observe_error(started, app, output_mode, exc.code)
-            return {"ok": False, "error": exc.code, "message": str(exc)}
+            return self._error_response(exc)
 
     def act(
         self,
@@ -255,9 +268,10 @@ class LeanComputerUse:
             # snapshot above and the after snapshot below are taken with the
             # overlay hidden, so agent-visible state stays unpolluted.
             self._overlay.show()
+            real_input_info: dict[str, Any] | None = None
             try:
                 if action == "click" and click_method == "real":
-                    raw, image = self._real_click(
+                    raw, image, real_input_info = self._real_click(
                         app, x, y, mouse_button, nodes, depth, text
                     )
                 else:
@@ -269,6 +283,16 @@ class LeanComputerUse:
             after = self._build_snapshot(app, raw, image, budget=(nodes, depth, text))
             self.store.put(after)
             delta = diff(gate, after)
+            response: dict[str, Any] = {
+                "ok": True,
+                "state_id": after.state_id,
+                "action": action,
+                "state_changed": delta.window_title_changed
+                or bool(delta.added or delta.removed or delta.changed),
+                "delta": delta.to_dict(),
+            }
+            if real_input_info is not None:
+                response["real_input"] = real_input_info
             self.metrics.record(
                 tool="cu_act",
                 app=app,
@@ -281,15 +305,10 @@ class LeanComputerUse:
                 latency_ms=_elapsed_ms(started),
                 error=None,
                 commit=commit,
+                real_input_fallback=real_input_info is not None
+                and real_input_info.get("path") == "fallback",
             )
-            return {
-                "ok": True,
-                "state_id": after.state_id,
-                "action": action,
-                "state_changed": delta.window_title_changed
-                or bool(delta.added or delta.removed or delta.changed),
-                "delta": delta.to_dict(),
-            }
+            return response
         except StaleStateError as exc:
             self._record_act_error(started, app, action, "STALE_STATE", commit)
             return {
@@ -301,7 +320,26 @@ class LeanComputerUse:
         except LeanComputerUseError as exc:
             error_code = "COMMIT_UNCERTAIN" if commit else exc.code
             self._record_act_error(started, app, action, error_code, commit)
-            return {"ok": False, "error": error_code, "message": str(exc)}
+            response: dict[str, Any] = {
+                "ok": False,
+                "error": error_code,
+                "message": str(exc),
+            }
+            if getattr(exc, "reason", None):
+                response["reason"] = exc.reason
+            return response
+
+    @staticmethod
+    def _error_response(
+        exc: LeanComputerUseError, extra: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Structured error object: code + human message + machine reason."""
+        response: dict[str, Any] = {"ok": False, "error": exc.code, "message": str(exc)}
+        if getattr(exc, "reason", None):
+            response["reason"] = exc.reason
+        if extra:
+            response.update(extra)
+        return response
 
     def _record_observe_error(
         self,
@@ -466,22 +504,10 @@ class LeanComputerUse:
                 }
         except AppNotFoundError as exc:
             error_code = exc.code
-            response = {
-                "ok": False,
-                "error": exc.code,
-                "action": action,
-                "app": app,
-                "message": str(exc),
-            }
+            response = self._error_response(exc, extra={"action": action, "app": app})
         except LeanComputerUseError as exc:
             error_code = exc.code
-            response = {
-                "ok": False,
-                "error": exc.code,
-                "action": action,
-                "app": app,
-                "message": str(exc),
-            }
+            response = self._error_response(exc, extra={"action": action, "app": app})
         self.metrics.record(
             tool="cu_window",
             app=app,
@@ -610,13 +636,45 @@ class LeanComputerUse:
         nodes: int,
         depth: int,
         text: int | str,
-    ) -> tuple[str, bytes | None]:
-        """Windows real-input click, then a post snapshot at the same budget."""
-        self.upstream.real_input_click(
-            app, int(x or 0), int(y or 0), mouse_button or "left"
-        )
+    ) -> tuple[str, bytes | None, dict[str, Any]]:
+        """Windows real-input click, then a post snapshot at the same budget.
+
+        The upstream real path runs first. When it fails for any reason
+        (unavailable backend, window not found, timeout, Win32 error), the
+        facade falls back to its own ``CtypesWin32Input`` - the same
+        screenshot-pixel coordinate contract - so a real click is not lost to
+        a transport-level failure. The returned info reports which path
+        executed and the upstream error when a fallback happened.
+        """
+        sx, sy = int(x or 0), int(y or 0)
+        button = mouse_button or "left"
+        upstream_error: str | None = None
+        path = "upstream"
+        try:
+            self.upstream.real_input_click(app, sx, sy, button)
+        except LeanComputerUseError as exc:
+            upstream_error = str(exc)
+            self._fallback_real_click(app, sx, sy, button)
+            path = "fallback"
+        except Exception as exc:  # noqa: BLE001 - structure any raw failure
+            upstream_error = str(exc)
+            self._fallback_real_click(app, sx, sy, button)
+            path = "fallback"
         time.sleep(0.25)
-        return self.upstream.get_app_state(app, nodes, depth, text)
+        raw, image = self.upstream.get_app_state(app, nodes, depth, text)
+        return raw, image, {"path": path, "upstream_error": upstream_error}
+
+    def _fallback_real_click(
+        self, app: str, x: int, y: int, mouse_button: str
+    ) -> None:
+        """Facade-owned real click with an explicit bounds gate."""
+        backend = self._real_input_fallback_backend
+        if backend is None:
+            backend = CtypesWin32Input()
+            self._real_input_fallback_backend = backend
+        window = backend.find_main_window(app)
+        check_click_bounds(window, x, y)
+        backend.click(window, x, y, mouse_button)
 
     @staticmethod
     def _build_action_args(

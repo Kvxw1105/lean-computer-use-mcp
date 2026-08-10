@@ -28,6 +28,7 @@ from typing import Any, Protocol
 from lean_computer_use_mcp.errors import (
     AmbiguousTargetError,
     AppNotFoundError,
+    RealInputFailedError,
     RealInputUnavailableError,
     UpstreamError,
 )
@@ -150,6 +151,20 @@ def screen_point(window: WindowInfo, x: int, y: int) -> tuple[int, int]:
     return (window.left + int(x), window.top + int(y))
 
 
+def check_click_bounds(window: WindowInfo, x: int, y: int) -> None:
+    """Reject screenshot-pixel coordinates outside the window rect.
+
+    Raises ``RealInputFailedError`` with reason ``out_of_bounds``; pure so
+    tests exercise it without Win32.
+    """
+    if int(x) < 0 or int(y) < 0 or int(x) >= window.width or int(y) >= window.height:
+        raise RealInputFailedError(
+            f"coordinate ({x},{y}) is outside the window rect "
+            f"{window.width}x{window.height}",
+            reason="out_of_bounds",
+        )
+
+
 class Win32Input(Protocol):
     """Injectable real-input backend (faked in unit tests)."""
 
@@ -227,7 +242,10 @@ class CtypesWin32Input:
                 )
             )
         if not windows:
-            raise AppNotFoundError(f"real-input window not found for app {app!r}")
+            raise AppNotFoundError(
+                f"real-input window not found for app {app!r}",
+                reason="window_not_found",
+            )
         windows.sort(key=lambda w: w.width * w.height, reverse=True)
         return windows
 
@@ -260,7 +278,10 @@ class CtypesWin32Input:
                 )
             )
         if not matching:
-            raise AppNotFoundError(f"real-input window not found for app {app!r}")
+            raise AppNotFoundError(
+                f"real-input window not found for app {app!r}",
+                reason="window_not_found",
+            )
         candidates: list[WindowCandidate] = []
         for info, index, title in matching:
             above: list[tuple[str, WindowInfo]] = []
@@ -312,28 +333,33 @@ class CtypesWin32Input:
             )
         return narrowed[0]
 
+    def _show_and_foreground(self, hwnd: int, show_command: int) -> None:
+        """Wrap Win32 window-state calls so failures stay structured."""
+        try:
+            self._user32.ShowWindow(hwnd, show_command)
+            self._user32.SetForegroundWindow(hwnd)
+        except (ctypes.ArgumentError, OSError) as exc:
+            raise RealInputFailedError(
+                f"Win32 window state change failed: {exc}", reason="win32_error"
+            ) from exc
+        time.sleep(0.2)
+
     def focus_main_window(self, app: str) -> WindowInfo:
         """Restore and foreground the app's main window (window-level action)."""
         window = self.find_main_window(app)
-        self._user32.ShowWindow(window.hwnd, 9)  # SW_RESTORE
-        self._user32.SetForegroundWindow(window.hwnd)
-        time.sleep(0.2)
+        self._show_and_foreground(window.hwnd, 9)  # SW_RESTORE
         return window
 
     def activate_window(self, app: str, title: str | None = None) -> WindowInfo:
         """Restore + foreground one window; ambiguous matches raise."""
         chosen = self._resolve(app, title)
-        self._user32.ShowWindow(chosen.info.hwnd, 9)  # SW_RESTORE
-        self._user32.SetForegroundWindow(chosen.info.hwnd)
-        time.sleep(0.2)
+        self._show_and_foreground(chosen.info.hwnd, 9)  # SW_RESTORE
         return chosen.info
 
     def maximize_window(self, app: str, title: str | None = None) -> WindowInfo:
         """Restore + maximize + foreground one window; ambiguous matches raise."""
         chosen = self._resolve(app, title)
-        self._user32.ShowWindow(chosen.info.hwnd, 3)  # SW_MAXIMIZE
-        self._user32.SetForegroundWindow(chosen.info.hwnd)
-        time.sleep(0.2)
+        self._show_and_foreground(chosen.info.hwnd, 3)  # SW_MAXIMIZE
         return chosen.info
 
     def click(
@@ -346,20 +372,26 @@ class CtypesWin32Input:
     ) -> None:
         if not _IS_WINDOWS:
             raise RealInputUnavailableError("real-input click requires Windows")
+        check_click_bounds(window, x, y)
         flags = _BUTTON_FLAGS.get(mouse_button)
         if flags is None:
             raise UpstreamError(
                 f"unsupported mouse_button for real click: {mouse_button!r}"
             )
-        sx, sy = screen_point(window, x, y)
-        self._user32.SetCursorPos(sx, sy)
-        time.sleep(0.15)
-        down, up = flags
-        for _ in range(max(1, click_count)):
-            self._user32.mouse_event(down, 0, 0, 0, 0)
-            time.sleep(0.08)
-            self._user32.mouse_event(up, 0, 0, 0, 0)
-            time.sleep(0.12)
+        try:
+            sx, sy = screen_point(window, x, y)
+            self._user32.SetCursorPos(sx, sy)
+            time.sleep(0.15)
+            down, up = flags
+            for _ in range(max(1, click_count)):
+                self._user32.mouse_event(down, 0, 0, 0, 0)
+                time.sleep(0.08)
+                self._user32.mouse_event(up, 0, 0, 0, 0)
+                time.sleep(0.12)
+        except (ctypes.ArgumentError, OSError) as exc:
+            raise RealInputFailedError(
+                f"Win32 real click failed: {exc}", reason="win32_error"
+            ) from exc
 
     def _titled_visible_windows(self) -> list[tuple[int, int, str, int, int, int, int]]:
         entries: list[tuple[int, int, str, int, int, int, int]] = []

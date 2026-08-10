@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from lean_computer_use_mcp.errors import RealInputUnavailableError
 from lean_computer_use_mcp.server import LeanComputerUse
 from lean_computer_use_mcp.upstream.cli_client import CliUpstreamClient
 from lean_computer_use_mcp.upstream.fake_client import FakeUpstreamClient
@@ -151,9 +152,21 @@ def test_real_click_rejects_stale_state_before_input(settings):
     assert upstream.action_calls == []
 
 
+class UnavailableFallbackInput:
+    """Facade fallback that reports the capability gap (hermetic: no Win32)."""
+
+    def find_main_window(self, app):
+        raise RealInputUnavailableError("real-input click requires Windows")
+
+    def click(self, *args, **kwargs):
+        raise AssertionError("must not be reached")
+
+
 def test_real_click_unavailable_without_win32_backend(settings):
     upstream = FakeUpstreamClient(FIXTURES)  # base implementation raises
-    engine = LeanComputerUse(upstream, settings)
+    engine = LeanComputerUse(
+        upstream, settings, real_input_fallback=UnavailableFallbackInput()
+    )
     observed = engine.observe("ChatGPT")
     result = engine.act(
         "ChatGPT", observed["state_id"], "click", click_method="real", x=10, y=20

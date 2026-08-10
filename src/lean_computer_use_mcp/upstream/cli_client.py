@@ -7,7 +7,11 @@ import shutil
 import subprocess
 import sys
 
-from lean_computer_use_mcp.errors import RealInputUnavailableError, UpstreamError
+from lean_computer_use_mcp.errors import (
+    RealInputUnavailableError,
+    UpstreamError,
+    UpstreamTimeoutError,
+)
 from lean_computer_use_mcp.models import AppInfo
 from lean_computer_use_mcp.upstream.win_input import (
     CtypesWin32Input,
@@ -94,7 +98,7 @@ class CliUpstreamClient(UpstreamClient):
                 timeout=self.timeout_seconds,
             )
         except subprocess.TimeoutExpired as exc:
-            raise UpstreamError(f"upstream call timed out: {label}") from exc
+            raise UpstreamTimeoutError(f"upstream call timed out: {label}") from exc
 
     @staticmethod
     def _parse(stdout: str, label: str) -> dict | list:
