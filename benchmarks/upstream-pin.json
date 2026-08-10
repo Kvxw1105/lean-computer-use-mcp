@@ -1,0 +1,41 @@
+{
+  "pinned_version": "0.3.1",
+  "note": "Fixtures captured against the pinned open-computer-use npm CLI. When the upstream version changes, regenerate fixtures and update this file (run: python benchmarks/verify_pin.py --binary open-computer-use --regenerate).",
+  "fixtures": [
+    {
+      "path": "examples/fixtures/list_apps.json",
+      "sha256": "4ab100dc0119bc3f55165b9e172c870305bed7c7b23480b05d8de2d32af963c5",
+      "bytes": 196
+    },
+    {
+      "path": "examples/fixtures/list_apps_upstream.txt",
+      "sha256": "e0c2834e602f117b89cfa0b8ae382791b748300e76310e11bfac6935db0623a1",
+      "bytes": 193
+    },
+    {
+      "path": "examples/fixtures/state_capcut_empty.txt",
+      "sha256": "da5e17af4ed02eec5e041308611b60227d407ed856b2e006ce370a0d206bfd20",
+      "bytes": 218
+    },
+    {
+      "path": "examples/fixtures/state_chatgpt_after_modal.txt",
+      "sha256": "4b3f65c2c7bc181a0a7a098c33a9578364286844032319f41fd3ad926d233b9f",
+      "bytes": 2003
+    },
+    {
+      "path": "examples/fixtures/state_chatgpt_control.txt",
+      "sha256": "e80d600f6e016f7510d49fc0e03667b013257dd81a5a7457241bcb32bba39ab1",
+      "bytes": 1699
+    },
+    {
+      "path": "examples/fixtures/recording_font_size.json",
+      "sha256": "04efce055ed16b29e59d106091381e602127bbd896bbf8a9a824fb61b5a11042",
+      "bytes": 5582
+    },
+    {
+      "path": "examples/fixtures/memory_components.json",
+      "sha256": "4ce393c844ce9e1d7b142f729987306f25464a8a4cac7712da08ab37a7ab1299",
+      "bytes": 2047
+    }
+  ]
+}

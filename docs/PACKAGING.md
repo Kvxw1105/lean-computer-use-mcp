@@ -95,4 +95,18 @@ zero image bytes reach model-visible output:
 uv run python benchmarks/success_matrix.py
 ```
 
+The upstream CLI is **pinned** (currently `0.3.1`, see
+`diagnostics.UPSTREAM_PINNED_VERSION`): `doctor` warns when the installed
+version drifts, and `benchmarks/verify_pin.py` checks that the regression
+fixtures still match their recorded hashes (CI runs this on every push; the
+binary check is opt-in because CI has no desktop):
+
+```sh
+uv run python benchmarks/verify_pin.py
+uv run python benchmarks/verify_pin.py --binary open-computer-use
+```
+
+After an upstream upgrade: verify the new version, update the pin, and
+regenerate fixture hashes with `--regenerate`.
+
 Real-desktop runs (`--real`) are documented in `docs/BENCHMARKS.md`.

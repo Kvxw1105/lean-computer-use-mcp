@@ -8,6 +8,7 @@ occlusion, window DPI).
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -16,6 +17,18 @@ from typing import Any, Callable
 
 from lean_computer_use_mcp.errors import AppNotFoundError, LeanComputerUseError
 from lean_computer_use_mcp.upstream.win_input import CtypesWin32Input, WindowStatus
+
+#: Upstream CLI version the fixtures and benchmarks were captured against.
+#: Keep ``benchmarks/upstream-pin.json`` in sync when this changes.
+UPSTREAM_PINNED_VERSION = "0.3.1"
+
+_VERSION_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)")
+
+
+def parse_version(text: str) -> str | None:
+    """Extract the first ``MAJOR.MINOR.PATCH`` triple from arbitrary text."""
+    match = _VERSION_RE.search(text)
+    return match.group(0) if match else None
 
 
 @dataclass
@@ -100,7 +113,9 @@ def check_binary(binary: str) -> CheckResult:
 
 
 def check_upstream_version(
-    binary: str, runner: Callable[[str], str] | None = None
+    binary: str,
+    runner: Callable[[str], str] | None = None,
+    pinned: str = UPSTREAM_PINNED_VERSION,
 ) -> CheckResult:
     if shutil.which(binary) is None:
         return CheckResult("upstream_version", "skip", "binary missing")
@@ -111,10 +126,23 @@ def check_upstream_version(
         return CheckResult(
             "upstream_version", "warn", f"could not read version: {exc}"
         )
-    version = (output.splitlines()[0] if output else "").strip()
+    version = parse_version(output or "")
     if not version:
         return CheckResult("upstream_version", "warn", "no version string")
-    return CheckResult("upstream_version", "ok", version, {"version": version})
+    if version != pinned:
+        return CheckResult(
+            "upstream_version",
+            "warn",
+            f"installed {version}, pinned {pinned} - "
+            "regenerate fixtures before trusting results",
+            {"version": version, "pinned": pinned},
+        )
+    return CheckResult(
+        "upstream_version",
+        "ok",
+        f"{version} (pinned {pinned})",
+        {"version": version, "pinned": pinned},
+    )
 
 
 def check_dpi_awareness(
