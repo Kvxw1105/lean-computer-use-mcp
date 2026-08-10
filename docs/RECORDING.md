@@ -87,6 +87,11 @@ lean-computer-use replay --in recordings/font-size.json --run
     guard) is one `drag` step carrying `x`/`y` -> `to_x`/`to_y`; a press with
     no real movement stays a `click`; moves while any other button is held
     are ignored;
+  - during a drag, `mouse_move` events closer than 2px or faster than
+    30ms are merged into one recorded event, so long timeline/upload
+    drags stay small in `recording.json` while the step keeps exact
+    press/release coordinates (the release position always comes from
+    the `mouse_up` event);
   - printable keys are grouped into `type_text`, combos (Ctrl+S) become
     `press_key`, Enter is a commit-like press;
   - the recorder's own stop hotkey is filtered out.

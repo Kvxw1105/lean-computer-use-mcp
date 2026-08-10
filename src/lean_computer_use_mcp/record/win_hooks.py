@@ -48,6 +48,36 @@ _MOUSE_MBUTTONDOWN = 0x0207
 _MOUSE_MBUTTONUP = 0x0208
 _MOUSE_WHEEL = 0x020A
 
+#: Mouse-move throttling during drags: a move is recorded only when it
+#: moved at least this far from the last recorded move, or when at least
+#: this much time has elapsed since it, whichever comes first. This keeps
+#: recording.json small on long timeline/upload drags while preserving
+#: the gesture shape (press point, last position, release point).
+_MOVE_MIN_DISTANCE = 2
+_MOVE_MIN_INTERVAL = 0.03
+
+
+def should_record_move(
+    last: tuple[int, int, float] | None,
+    x: int,
+    y: int,
+    now: float,
+    min_distance: float = _MOVE_MIN_DISTANCE,
+    min_interval: float = _MOVE_MIN_INTERVAL,
+) -> bool:
+    """Whether a mouse move should be recorded given the last one.
+
+    ``last`` is the ``(x, y, monotonic_ts)`` of the last recorded move;
+    ``None`` (fresh gesture) always records. Moves closer than
+    ``min_distance`` pixels and faster than ``min_interval`` seconds are
+    merged into one event.
+    """
+    if last is None:
+        return True
+    dx = x - last[0]
+    dy = y - last[1]
+    moved = dx * dx + dy * dy >= min_distance * min_distance
+    return moved or now - last[2] >= min_interval
 
 class _MSLLHOOKSTRUCT(ctypes.Structure):
     _fields_ = [
@@ -274,6 +304,8 @@ class WinInputHook:
         self.ime = ime or ImeSampler()
         self.events: list[InputEvent] = []
         self._buttons_down: set[str] = set()
+        self._last_move: tuple[int, int, float] | None = None
+        self._pending_move: tuple[int, int, float] | None = None
         self._thread: threading.Thread | None = None
         self._hooks: list[int] = []
         self._procs: list[Any] = []
@@ -346,19 +378,44 @@ class WinInputHook:
         if self.on_event is not None:
             self.on_event(event)
 
+    def _on_mouse_move(self, x: int, y: int) -> None:
+        """Record a throttled mouse move during a drag gesture."""
+        now = time.monotonic()
+        if not should_record_move(self._last_move, x, y, now):
+            self._pending_move = (x, y, now)
+            return
+        self._record(self._capture("mouse_move", x=x, y=y))
+        self._last_move = (x, y, now)
+        self._pending_move = None
+
+    def _flush_pending_move(self) -> None:
+        """Record the newest suppressed move right before release.
+
+        Keeps the final drag position in the stream even when the cursor
+        stopped for a moment before the button was released.
+        """
+        if self._pending_move is None:
+            return
+        x, y, _ts = self._pending_move
+        self._record(self._capture("mouse_move", x=x, y=y))
+        self._last_move = (x, y, time.monotonic())
+        self._pending_move = None
+
+
     def _on_mouse(self, code: int, wparam: int, lparam: int) -> int:
         if code >= 0 and lparam:
             data = ctypes.cast(lparam, ctypes.POINTER(_MSLLHOOKSTRUCT)).contents
             if wparam == _MOUSE_MOUSEMOVE and self._buttons_down:
-                # Moves only matter between press and release (drag gestures);
-                # outside a drag they would flood the recording.
-                self._record(
-                    self._capture(
-                        "mouse_move", x=int(data.pt.x), y=int(data.pt.y)
-                    )
-                )
+                # Moves only matter between press and release (drag
+                # gestures); outside a drag they would flood the
+                # recording. During a drag, moves closer than
+                # _MOVE_MIN_DISTANCE px or faster than _MOVE_MIN_INTERVAL s
+                # are merged into the last recorded move.
+                self._on_mouse_move(int(data.pt.x), int(data.pt.y))
             elif wparam == _MOUSE_LBUTTONDOWN:
                 self._buttons_down.add("left")
+                self._last_move = None
+                self._pending_move = None
                 self._record(
                     self._capture(
                         "mouse_down", x=int(data.pt.x), y=int(data.pt.y), button="left"
@@ -366,6 +423,8 @@ class WinInputHook:
                 )
             elif wparam == _MOUSE_RBUTTONDOWN:
                 self._buttons_down.add("right")
+                self._last_move = None
+                self._pending_move = None
                 self._record(
                     self._capture(
                         "mouse_down", x=int(data.pt.x), y=int(data.pt.y), button="right"
@@ -373,6 +432,8 @@ class WinInputHook:
                 )
             elif wparam == _MOUSE_MBUTTONDOWN:
                 self._buttons_down.add("middle")
+                self._last_move = None
+                self._pending_move = None
                 self._record(
                     self._capture(
                         "mouse_down",
@@ -382,6 +443,7 @@ class WinInputHook:
                     )
                 )
             elif wparam == _MOUSE_LBUTTONUP:
+                self._flush_pending_move()
                 self._buttons_down.discard("left")
                 self._record(
                     self._capture(
@@ -389,6 +451,7 @@ class WinInputHook:
                     )
                 )
             elif wparam == _MOUSE_RBUTTONUP:
+                self._flush_pending_move()
                 self._buttons_down.discard("right")
                 self._record(
                     self._capture(
@@ -396,6 +459,7 @@ class WinInputHook:
                     )
                 )
             elif wparam == _MOUSE_MBUTTONUP:
+                self._flush_pending_move()
                 self._buttons_down.discard("middle")
                 self._record(
                     self._capture(
