@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import locale
 import re
 import shutil
 import subprocess
@@ -86,16 +87,37 @@ class CliUpstreamClient(UpstreamClient):
             )
         return payload
 
+    @staticmethod
+    def _decode_upstream(output: bytes) -> str:
+        """Decode upstream bytes with encoding probing.
+
+        The pinned node CLI writes console-code-page bytes (GBK on zh-CN
+        Windows) when stdout is a pipe; elsewhere it writes UTF-8. GBK
+        double-byte sequences are often valid UTF-8 too, so on Windows the
+        preferred code page must be tried first; UTF-8 first elsewhere.
+        """
+        if sys.platform == "win32":
+            preferred = locale.getpreferredencoding(False) or "gbk"
+            codecs = (preferred, "utf-8", "gbk")
+        else:
+            codecs = ("utf-8", "gbk", locale.getpreferredencoding(False))
+        for codec in codecs:
+            try:
+                return output.decode(codec)
+            except (UnicodeDecodeError, LookupError):
+                continue
+        return output.decode("utf-8", errors="replace")
+
     def _subprocess(self, cmd: list[str], label: str) -> subprocess.CompletedProcess:
         if shutil.which(self.binary) is None:
             raise UpstreamError(f"upstream binary not found on PATH: {self.binary}")
         try:
-            return subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                timeout=self.timeout_seconds,
+            proc = subprocess.run(cmd, capture_output=True, timeout=self.timeout_seconds)
+            return subprocess.CompletedProcess(
+                args=cmd,
+                returncode=proc.returncode,
+                stdout=self._decode_upstream(proc.stdout or b""),
+                stderr=self._decode_upstream(proc.stderr or b""),
             )
         except subprocess.TimeoutExpired as exc:
             raise UpstreamTimeoutError(f"upstream call timed out: {label}") from exc

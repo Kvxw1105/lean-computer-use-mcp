@@ -162,3 +162,35 @@ def test_parse_upstream_apps_format():
     assert apps[0].visible_windows == 1
     assert apps[2].running is False
     assert apps[2].visible_windows == 0
+
+
+def test_decode_upstream_probes_gbk_and_utf8(monkeypatch):
+    import locale
+    import sys
+
+    decode = CliUpstreamClient._decode_upstream
+    monkeypatch.setattr(sys, "platform", "linux")  # non-Windows: utf-8 first
+    assert decode("??".encode("utf-8")) == "??"
+    assert decode("??".encode("gbk")) == "??"
+    assert decode(b"") == ""
+    assert decode(b"pure ascii") == "pure ascii"
+
+    monkeypatch.setattr(sys, "platform", "win32")  # Windows: code page first
+    monkeypatch.setattr(locale, "getpreferredencoding", lambda _: "cp936")
+    assert decode("??".encode("gbk")) == "??"
+    assert decode("??".encode("utf-8")) == "??"
+
+
+def test_subprocess_decodes_gbk_stdout(monkeypatch):
+    client = CliUpstreamClient(binary="open-computer-use")
+    payload = json.dumps(
+        {"content": [{"type": "text", "text": "??"}], "isError": False},
+        ensure_ascii=False,
+    ).encode("gbk")
+
+    def fake_run(cmd, capture_output, timeout):
+        return subprocess.CompletedProcess(cmd, 0, stdout=payload, stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    content = client._run("get_app_state", {"app": "Notepad"})
+    assert content[0]["text"] == "??"
