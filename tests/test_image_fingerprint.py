@@ -107,7 +107,8 @@ def test_observe_stores_image_fingerprint_locally(settings):
     # Not model-visible and not in metrics: the fingerprint is a local gate.
     assert "image_fingerprint" not in observed
     rows = _observe_rows(settings.metrics_path)
-    assert rows[0]["image_bytes"] == len(image)  # no extra bytes for the hash
+    assert rows[0]["image_bytes"] == 0  # model-visible image bytes stay zero
+    assert rows[0]["received_image_bytes"] == len(image)  # local screenshot tracked
     assert "image_fingerprint" not in rows[0]
 
 

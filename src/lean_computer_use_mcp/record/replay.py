@@ -47,6 +47,9 @@ class ReplayOutcome:
     error: str | None = None
     text_chars: int = 0
     image_bytes: int = 0
+    #: Local screenshot cache file size; never model-visible (kept separate
+    #: from ``image_bytes`` so metrics assertions stay honest).
+    local_screenshot_bytes: int = 0
     nodes: int = 0
     stale_retries: int = 0
 
@@ -242,7 +245,9 @@ class ReplayRunner:
         )
         text_chars = len(json.dumps(state, ensure_ascii=False))
         nodes = len(state.get("controls", []))
-        image_bytes = int((state.get("screenshot") or {}).get("bytes", 0))
+        # The observe used include_screenshot=False, so nothing image-like is
+        # model-visible; the local cache file size is tracked separately.
+        local_screenshot_bytes = int((state.get("screenshot") or {}).get("bytes", 0))
         if not state.get("ok"):
             return ReplayOutcome(
                 step=index,
@@ -387,6 +392,7 @@ class ReplayRunner:
             confirmed=True,
             error=result.get("error") if not result.get("ok") else None,
             text_chars=text_chars,
-            image_bytes=image_bytes,
+            image_bytes=0,
+            local_screenshot_bytes=local_screenshot_bytes,
             nodes=nodes,
         )

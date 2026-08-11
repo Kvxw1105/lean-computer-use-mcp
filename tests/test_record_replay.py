@@ -160,3 +160,26 @@ def test_replay_yes_preconfirms_without_confirm_calls(settings):
     result = runner.run(_recording(), dry_run=False)
     assert result.ok is True
     assert calls == []
+
+
+class ScreenshotUpstream(ReplayRecordingUpstream):
+    """Fake upstream that returns a small screenshot image (local cache only)."""
+
+    def get_app_state(self, app, max_tree_nodes, max_tree_depth, text_limit):
+        raw, image = super().get_app_state(
+            app, max_tree_nodes, max_tree_depth, text_limit
+        )
+        return raw, b"PNGDATA"
+
+
+def test_replay_outcome_tracks_local_screenshot_separately(settings):
+    upstream = ScreenshotUpstream(FIXTURES)
+    server = LeanComputerUse(upstream, settings)
+    runner = ReplayRunner(server, confirm=lambda index, step: True)
+    result = runner.run(_recording(), dry_run=False)
+    assert result.ok is True
+    observed = [o for o in result.outcomes if o.text_chars > 0]
+    assert observed  # content steps observe the app
+    for outcome in observed:
+        assert outcome.image_bytes == 0  # model-visible image bytes stay zero
+        assert outcome.local_screenshot_bytes > 0  # cached locally, not sent

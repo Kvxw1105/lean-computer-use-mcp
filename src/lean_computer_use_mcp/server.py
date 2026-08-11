@@ -330,7 +330,10 @@ class LeanComputerUse:
                 app=app,
                 action=action,
                 text_chars=len(raw),
-                image_bytes=len(image) if image else 0,
+                # The post-action snapshot image stays local; nothing image-like
+                # is model-visible in the cu_act response.
+                image_bytes=0,
+                received_image_bytes=len(image) if image else 0,
                 image_payloads=0,
                 nodes=len(after.controls),
                 truncated=after.truncated_tree or after.truncated_text,
@@ -970,7 +973,11 @@ class LeanComputerUse:
             app=app,
             output_mode=output_mode,
             text_chars=len(raw),
-            image_bytes=len(image) if image else 0,
+            # image_bytes counts only model-visible image payloads (base64 in
+            # screenshot.data); the raw upstream screenshot stays local and is
+            # reported separately as received_image_bytes.
+            image_bytes=len(screenshot["data"]) if screenshot["data"] else 0,
+            received_image_bytes=len(image) if image else 0,
             image_payloads=image_payloads,
             nodes=len(controls),
             truncated=tree_truncated or text_truncated,

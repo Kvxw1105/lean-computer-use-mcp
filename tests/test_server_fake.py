@@ -280,3 +280,53 @@ def test_to_mcp_advertises_facade_version(fake_upstream, settings):
     engine = LeanComputerUse(fake_upstream, settings)
     mcp = engine.to_mcp()
     assert mcp.instructions == f"lean-computer-use-mcp v{__version__}"
+
+
+class ImageUpstream(FakeUpstreamClient):
+    """Fake upstream that returns a small local screenshot image."""
+
+    def get_app_state(self, app, max_tree_nodes, max_tree_depth, text_limit):
+        raw, _ = super().get_app_state(
+            app, max_tree_nodes, max_tree_depth, text_limit
+        )
+        return raw, b"PNGDATA"
+
+    def act_with_refresh(
+        self, app, tool, args, max_tree_nodes, max_tree_depth, text_limit
+    ):
+        raw, _, meta = super().act_with_refresh(
+            app, tool, args, max_tree_nodes, max_tree_depth, text_limit
+        )
+        return raw, b"PNGDATA", meta
+
+
+def _rows(path: Path) -> list[dict]:
+    return [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+def test_observe_metrics_count_only_model_visible_image_bytes(settings):
+    engine = LeanComputerUse(ImageUpstream(FIXTURES), settings)
+    observed = engine.observe("ChatGPT", output_mode="controls")
+    assert observed["screenshot"]["data"] is None
+    row = [r for r in _rows(Path(settings.metrics_path)) if r["tool"] == "cu_observe"][-1]
+    assert row["image_bytes"] == 0  # nothing image-like reached the model
+    assert row["received_image_bytes"] > 0  # local screenshot tracked separately
+    assert row["image_payloads"] == 0
+    result = engine.act("ChatGPT", observed["state_id"], "click", x=10, y=10)
+    assert result["ok"] is True
+    act_row = [r for r in _rows(Path(settings.metrics_path)) if r["tool"] == "cu_act"][-1]
+    assert act_row["image_bytes"] == 0
+    assert act_row["received_image_bytes"] > 0
+
+
+def test_observe_include_screenshot_counts_base64_payload(settings):
+    engine = LeanComputerUse(ImageUpstream(FIXTURES), settings)
+    observed = engine.observe("ChatGPT", include_screenshot=True)
+    assert observed["screenshot"]["data"]
+    row = [r for r in _rows(Path(settings.metrics_path)) if r["tool"] == "cu_observe"][-1]
+    assert row["image_bytes"] == len(observed["screenshot"]["data"])
+    assert row["image_payloads"] == 1
