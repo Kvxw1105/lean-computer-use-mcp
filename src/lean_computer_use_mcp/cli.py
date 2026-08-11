@@ -21,6 +21,7 @@ from lean_computer_use_mcp.record.recorder import Recorder
 from lean_computer_use_mcp.record.replay import ReplayOutcome, ReplayRunner
 from lean_computer_use_mcp.server import LeanComputerUse
 from lean_computer_use_mcp.upstream.cli_client import CliUpstreamClient
+from lean_computer_use_mcp.upstream.cua_client import CuaUpstreamClient
 from lean_computer_use_mcp.upstream.fake_client import FakeUpstreamClient
 
 
@@ -47,6 +48,13 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Override the open-computer-use binary name",
     )
+
+    serve.add_argument(
+        "--upstream",
+        choices=("open-computer-use", "cua-driver"),
+        default=None,
+        help="Upstream backend (default: open-computer-use)",
+    )
     serve.add_argument(
         "--metrics-path", default=None, help="Write JSONL metrics to this file"
     )
@@ -64,6 +72,13 @@ def main(argv: list[str] | None = None) -> int:
         "--upstream-binary",
         default=None,
         help="Override the open-computer-use binary name",
+    )
+
+    doctor.add_argument(
+        "--upstream",
+        choices=("open-computer-use", "cua-driver"),
+        default=None,
+        help="Upstream backend (default: open-computer-use)",
     )
     doctor.add_argument(
         "--app",
@@ -106,6 +121,13 @@ def main(argv: list[str] | None = None) -> int:
         "--upstream-binary",
         default=None,
         help="Override the open-computer-use binary name",
+    )
+
+    record.add_argument(
+        "--upstream",
+        choices=("open-computer-use", "cua-driver"),
+        default=None,
+        help="Upstream backend (default: open-computer-use)",
     )
     record.add_argument(
         "--metrics-path", default=None, help="Write JSONL metrics to this file"
@@ -197,6 +219,13 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Override the open-computer-use binary name",
     )
+
+    replay.add_argument(
+        "--upstream",
+        choices=("open-computer-use", "cua-driver"),
+        default=None,
+        help="Upstream backend (default: open-computer-use)",
+    )
     replay.add_argument(
         "--metrics-path", default=None, help="Write JSONL metrics to this file"
     )
@@ -264,6 +293,13 @@ def main(argv: list[str] | None = None) -> int:
         "--upstream-binary",
         default=None,
         help="Override the open-computer-use binary name",
+    )
+
+    recall.add_argument(
+        "--upstream",
+        choices=("open-computer-use", "cua-driver"),
+        default=None,
+        help="Upstream backend (default: open-computer-use)",
     )
     recall.add_argument(
         "--metrics-path", default=None, help="Write JSONL metrics to this file"
@@ -383,16 +419,26 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_verify(args)
 
     settings = _settings_from_args(args)
-    upstream = (
-        FakeUpstreamClient()
-        if args.fake
-        else CliUpstreamClient(
-            settings.upstream_binary, settings.upstream_timeout_seconds
-        )
-    )
+    upstream = build_upstream(settings, args.fake)
     server = LeanComputerUse(upstream=upstream, settings=settings)
     server.to_mcp().run(transport="stdio")
     return 0
+
+
+
+def build_upstream(settings, fake: bool = False):
+    """Creates the configured upstream client (open-computer-use | cua-driver)."""
+    if fake:
+        return FakeUpstreamClient()
+    if settings.upstream_kind == "cua-driver":
+        return CuaUpstreamClient(
+            settings.upstream_binary, settings.upstream_timeout_seconds
+        )
+    if settings.upstream_kind in ("open-computer-use", "open-computer-use-cli"):
+        return CliUpstreamClient(
+            settings.upstream_binary, settings.upstream_timeout_seconds
+        )
+    raise ValueError(f"unknown upstream_kind: {settings.upstream_kind!r}")
 
 
 def confirm_store() -> bool:
@@ -409,13 +455,7 @@ def _print_live_steps(steps) -> None:
 
 def _cmd_record(args: argparse.Namespace) -> int:
     settings = _settings_from_args(args)
-    upstream = (
-        FakeUpstreamClient()
-        if args.fake
-        else CliUpstreamClient(
-            settings.upstream_binary, settings.upstream_timeout_seconds
-        )
-    )
+    upstream = build_upstream(settings, args.fake)
     out_path = args.out or f"recordings/{args.app}-{int(time.time())}.json"
     hook = None
     foreground = None
@@ -548,13 +588,7 @@ def _cmd_replay(args: argparse.Namespace) -> int:
     if args.app:
         recording.app = args.app
     settings = _settings_from_args(args)
-    upstream = (
-        FakeUpstreamClient()
-        if args.fake
-        else CliUpstreamClient(
-            settings.upstream_binary, settings.upstream_timeout_seconds
-        )
-    )
+    upstream = build_upstream(settings, args.fake)
     server = LeanComputerUse(upstream=upstream, settings=settings)
     memory = None
     if args.library:
@@ -946,13 +980,7 @@ def _cmd_recall(args: argparse.Namespace) -> int:
         for index, step in enumerate(plan.steps, start=1):
             print(f"  {index}. {step.describe()}")
     settings = _settings_from_args(args)
-    upstream = (
-        FakeUpstreamClient()
-        if args.fake
-        else CliUpstreamClient(
-            settings.upstream_binary, settings.upstream_timeout_seconds
-        )
-    )
+    upstream = build_upstream(settings, args.fake)
     server = LeanComputerUse(upstream=upstream, settings=settings)
     recording = Recording(
         name=f"recall-{int(time.time())}",
@@ -989,6 +1017,8 @@ def _settings_from_args(args: argparse.Namespace) -> Settings:
     overrides: dict[str, object] = {}
     if getattr(args, "upstream_binary", None):
         overrides["upstream_binary"] = args.upstream_binary
+    if getattr(args, "upstream", None):
+        overrides["upstream_kind"] = args.upstream
     if getattr(args, "metrics_path", None):
         overrides["metrics_path"] = args.metrics_path
     if getattr(args, "state_ttl_seconds", None):

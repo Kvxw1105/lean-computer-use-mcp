@@ -307,3 +307,18 @@ def test_call_passes_json_via_stdin(monkeypatch):
     client._call("get_screen_size", {})
     assert captured["args"] == ("call", "get_screen_size")
     assert json.loads(captured["stdin"]) == {}
+
+
+def test_build_upstream_selects_backend():
+    from lean_computer_use_mcp.cli import build_upstream
+    from lean_computer_use_mcp.config import Settings
+    from lean_computer_use_mcp.upstream.cli_client import CliUpstreamClient
+    from lean_computer_use_mcp.upstream.fake_client import FakeUpstreamClient
+
+    assert isinstance(
+        build_upstream(Settings(upstream_kind="cua-driver")), CuaUpstreamClient
+    )
+    assert isinstance(
+        build_upstream(Settings(upstream_kind="open-computer-use")), CliUpstreamClient
+    )
+    assert isinstance(build_upstream(Settings(), fake=True), FakeUpstreamClient)
