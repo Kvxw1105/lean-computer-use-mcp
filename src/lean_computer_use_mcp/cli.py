@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 import time
 from pathlib import Path
 
 from lean_computer_use_mcp import __version__
 from lean_computer_use_mcp.config import Settings
-from lean_computer_use_mcp.diagnostics import UPSTREAM_PINNED_VERSION, run_doctor
+from lean_computer_use_mcp.diagnostics import UPSTREAM_PINNED_VERSION, cua_available, run_doctor
 from lean_computer_use_mcp.memory.refine import (
     LlmRefiner,
     RefineSuggestions,
@@ -23,6 +24,8 @@ from lean_computer_use_mcp.server import LeanComputerUse
 from lean_computer_use_mcp.upstream.cli_client import CliUpstreamClient
 from lean_computer_use_mcp.upstream.cua_client import CuaUpstreamClient
 from lean_computer_use_mcp.upstream.fake_client import FakeUpstreamClient
+
+logger = logging.getLogger(__name__)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -51,9 +54,12 @@ def main(argv: list[str] | None = None) -> int:
 
     serve.add_argument(
         "--upstream",
-        choices=("open-computer-use", "cua-driver"),
+        choices=("auto", "open-computer-use", "cua-driver"),
         default=None,
-        help="Upstream backend (default: open-computer-use)",
+        help=(
+            "Upstream backend (default: auto - cua-driver when present, "
+            "otherwise open-computer-use)"
+        ),
     )
     serve.add_argument(
         "--metrics-path", default=None, help="Write JSONL metrics to this file"
@@ -76,9 +82,12 @@ def main(argv: list[str] | None = None) -> int:
 
     doctor.add_argument(
         "--upstream",
-        choices=("open-computer-use", "cua-driver"),
+        choices=("auto", "open-computer-use", "cua-driver"),
         default=None,
-        help="Upstream backend (default: open-computer-use)",
+        help=(
+            "Upstream backend (default: auto - cua-driver when present, "
+            "otherwise open-computer-use)"
+        ),
     )
     doctor.add_argument(
         "--app",
@@ -427,14 +436,25 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def build_upstream(settings, fake: bool = False):
-    """Creates the configured upstream client (open-computer-use | cua-driver)."""
+    """Creates the configured upstream client (auto | open-computer-use | cua-driver).
+
+    ``auto`` prefers the cua-driver (Hermes) backend when its binary resolves,
+    and falls back to open-computer-use otherwise. The resolved choice is
+    logged so operators can see which engine actually serves the session.
+    """
     if fake:
         return FakeUpstreamClient()
-    if settings.upstream_kind == "cua-driver":
+    kind = settings.upstream_kind
+    if kind == "auto":
+        kind = "cua-driver" if cua_available() else "open-computer-use"
+        logger.info("upstream auto-resolved to %s", kind)
+    if kind == "cua-driver":
+        # The cua-driver backend always uses the cua-driver executable;
+        # upstream_binary only overrides the open-computer-use binary name.
         return CuaUpstreamClient(
-            settings.upstream_binary, settings.upstream_timeout_seconds
+            "cua-driver", settings.upstream_timeout_seconds
         )
-    if settings.upstream_kind in ("open-computer-use", "open-computer-use-cli"):
+    if kind in ("open-computer-use", "open-computer-use-cli"):
         return CliUpstreamClient(
             settings.upstream_binary, settings.upstream_timeout_seconds
         )

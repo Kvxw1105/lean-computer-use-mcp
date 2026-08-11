@@ -309,7 +309,8 @@ def test_call_passes_json_via_stdin(monkeypatch):
     assert json.loads(captured["stdin"]) == {}
 
 
-def test_build_upstream_selects_backend():
+def test_build_upstream_selects_backend(monkeypatch):
+    import lean_computer_use_mcp.cli as cli
     from lean_computer_use_mcp.cli import build_upstream
     from lean_computer_use_mcp.config import Settings
     from lean_computer_use_mcp.upstream.cli_client import CliUpstreamClient
@@ -322,3 +323,25 @@ def test_build_upstream_selects_backend():
         build_upstream(Settings(upstream_kind="open-computer-use")), CliUpstreamClient
     )
     assert isinstance(build_upstream(Settings(), fake=True), FakeUpstreamClient)
+    # auto prefers cua-driver when its binary resolves, else open-computer-use.
+    monkeypatch.setattr(cli, "cua_available", lambda: True)
+    assert isinstance(build_upstream(Settings(upstream_kind="auto")), CuaUpstreamClient)
+    monkeypatch.setattr(cli, "cua_available", lambda: False)
+    assert isinstance(
+        build_upstream(Settings(upstream_kind="auto")), CliUpstreamClient
+    )
+
+
+def test_build_upstream_cua_driver_uses_cua_binary(monkeypatch):
+    """The cua-driver backend must never inherit the open-computer-use binary."""
+    from lean_computer_use_mcp.cli import build_upstream
+    from lean_computer_use_mcp.config import Settings
+
+    monkeypatch.setattr(
+        CuaUpstreamClient,
+        "_resolve_binary",
+        staticmethod(lambda binary: "C:/bin/cua-driver.exe"),
+    )
+    client = build_upstream(Settings(upstream_kind="cua-driver"))
+    assert isinstance(client, CuaUpstreamClient)
+    assert client.binary == "C:/bin/cua-driver.exe"

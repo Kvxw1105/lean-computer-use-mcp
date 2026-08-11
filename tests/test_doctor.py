@@ -162,6 +162,7 @@ def test_run_doctor_without_app_skips_window_checks(monkeypatch):
     assert names == [
         "upstream_binary",
         "upstream_version",
+        "upstream_resolution",
         "cua_driver",
         "window",
         "window_dpi",

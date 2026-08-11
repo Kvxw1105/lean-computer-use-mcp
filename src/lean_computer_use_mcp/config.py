@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class Settings:
     upstream_binary: str = "open-computer-use"
-    upstream_kind: str = "open-computer-use"
+    upstream_kind: str = "auto"
     upstream_timeout_seconds: int = 60
     state_ttl_seconds: int = 30
     state_max_entries: int = 64
@@ -40,7 +40,7 @@ class Settings:
     def from_env(cls) -> "Settings":
         return cls(
             upstream_binary=os.getenv("LEAN_CU_UPSTREAM_BIN", "open-computer-use"),
-            upstream_kind=os.getenv("LEAN_CU_UPSTREAM_KIND", "open-computer-use"),
+            upstream_kind=os.getenv("LEAN_CU_UPSTREAM_KIND", "auto"),
             upstream_timeout_seconds=int(os.getenv("LEAN_CU_UPSTREAM_TIMEOUT", "60")),
             state_ttl_seconds=int(os.getenv("LEAN_CU_STATE_TTL_SECONDS", "30")),
             state_max_entries=int(os.getenv("LEAN_CU_STATE_MAX_ENTRIES", "64")),

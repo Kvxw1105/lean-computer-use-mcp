@@ -8,6 +8,7 @@ occlusion, window DPI).
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -253,6 +254,31 @@ def check_window_dpi(
 
 
 
+def cua_available() -> bool:
+    """True when a cua-driver executable resolves (PATH or default install).
+
+    Used by the ``auto`` upstream mode and the doctor resolution check. Pure
+    probe: never starts the daemon, never touches the desktop.
+    """
+    resolved = CuaUpstreamClient._resolve_binary("cua-driver")
+    return resolved != "cua-driver" and os.path.isfile(resolved)
+
+
+def check_upstream_resolution() -> CheckResult:
+    """Shows which backend the ``auto`` default would pick right now."""
+    if cua_available():
+        return CheckResult(
+            "upstream_resolution",
+            "ok",
+            "auto -> cua-driver (Hermes backend)",
+        )
+    return CheckResult(
+        "upstream_resolution",
+        "ok",
+        "auto -> open-computer-use (npm backend)",
+    )
+
+
 def check_cua_driver(binary: str = "cua-driver") -> CheckResult:
     """Optional cua-driver backend probe: presence + version + daemon state.
 
@@ -299,6 +325,7 @@ def run_doctor(binary: str, app: str | None = None) -> DoctorReport:
     checks = [
         check_binary(binary),
         check_upstream_version(binary),
+        check_upstream_resolution(),
         check_cua_driver(),
     ]
     if app:

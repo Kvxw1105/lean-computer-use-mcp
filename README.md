@@ -16,12 +16,15 @@ Windows prerequisites (runtime only, not needed to install):
   is missing or drifts from the pin.
 - Optional vision endpoints in `~/.lean-cu/config.json` for the OCR -> LLM
   visual fallback (`lean-computer-use config` / `config-ui`).
-- Optional **cua-driver** backend (`trycua/cua`, MIT): background-first input
-  that never steals the mouse or foreground focus. Install once with
-  `irm https://cua.ai/driver/install.ps1 | iex`, then run the server with
+- **cua-driver** backend (`trycua/cua`, MIT) is the **default engine when
+  present** (`--upstream auto`): background-first input that never steals the
+  mouse or foreground focus, with structured refusals and an explicit
+  foreground escalation. Install once with
+  `irm https://cua.ai/driver/install.ps1 | iex`; `auto` falls back to
+  open-computer-use when the binary is missing. Pin with
   `lean-computer-use serve --upstream cua-driver` (or set
   `LEAN_CU_UPSTREAM_KIND=cua-driver`). The same model-visible contract applies;
-  `doctor` probes its version and daemon state. See
+  `doctor` shows the auto resolution and probes version + daemon state. See
   [docs/RESEARCH-cua-driver-as-upstream.md](docs/RESEARCH-cua-driver-as-upstream.md)
   for the comparison and rationale.
 
@@ -33,7 +36,7 @@ packaging, and the release-gate benchmark matrix.
 > errors, extended `doctor`, screenshot-fingerprint stale gate for trivial-tree
 > apps, replay auto-recovery, IME + drag recording, and text-LLM ProviderPool
 > failover. Release gates (success-rate matrix, upstream fixture pin) run in CI;
-> **472 tests pass (1 skipped)** and ruff is clean. The real-machine checklist
+> **491 tests pass (1 skipped)** and ruff is clean. The real-machine checklist
 > (docs/VERIFICATION.md) ran on a live Windows desktop on 2026-08-11: 7/10
 > items pass (install/observe, doctor, drag recording, real-input fallback,
 > window ambiguity/occlusion, screenshot-fingerprint stale gate, metrics
