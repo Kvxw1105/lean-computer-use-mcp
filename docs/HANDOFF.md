@@ -182,3 +182,57 @@ optional LLM multimodal), record/compile/replay, atomic procedural memory.
 - On this machine, editing files via `apply_patch` is unavailable; use
   `@'...'@ | python -` heredocs. PowerShell blocks recursive Remove-Item;
   delete via Python with verified paths.
+
+---
+
+# 2026-08-11 深夜交接补充（HEAD 752ba17 → ea76dfd）
+
+## 引擎格局（三家上游，如实）
+
+| 引擎 | 状态 |
+|---|---|
+| open-computer-use（npm 0.3.1） | 一期默认上游，现为 auto 兜底 |
+| Hermes cua-driver（trycua/cua, MIT, 0.19.3） | ✅ 已接入且为 **auto 首选**：接口+动作集完整覆盖 open-computer-use；后台优先输入（不抢焦点）、结构化拒绝、前台升级路径。仅另一台开发机（张凯文）安装；本机 kvxkf 未装 |
+| Kimi Computer Use | ❌ 未接入（闭源；WebBridge 是浏览器控制，非桌面 CU） |
+
+- 默认引擎 = `auto`：有 cua-driver 用 Hermes，否则回退 open-computer-use；`doctor` 新增
+  `upstream_resolution` 检查项；显式固定用 `--upstream cua-driver`。
+- 修复过隐藏 bug：cua 分支曾把 `settings.upstream_binary`（默认 open-computer-use）
+  传给 CuaUpstreamClient；现 cua 分支固定 `"cua-driver"`，`upstream_binary` 只作用于 npm 后端。
+
+## 验收记录（2026-08-11，kvxkf 本机只读验收 + 一处修复）
+
+- HEAD `ea76dfd` = 752ba17 + 本机修复（见下）；`origin/main` 一致，工作区干净
+- `uv run pytest` → **491 passed, 1 skipped**（无 cua-driver 的机器上也全绿）；ruff 干净
+- doctor 实测（无 cua-driver 机器）：`upstream_resolution: ok - auto -> open-computer-use (npm backend)`；
+  `cua_driver: warn - not found (optional backend)`——回退路径正确，缺失只是 warn
+- 上轮审查建议已全部落实：
+  - P1-1 fixture 行尾 pin → `1c26a4b`（.gitattributes + 归一化）
+  - P1-2 截图指纹缺窗口 rect → 同提交修复
+  - P2-3 IME 短组合丢文本 → `1f92da6`（delayed re-sample）
+  - 覆盖率：cli_client/win_input/win_hooks/ocr/overlay 达 100%（6c02f5b/d84b7cc/d07bbbc/2508df1）
+- **本次修复 `ea76dfd`（CI 红 6 次的根因）**：`tests/test_doctor.py` 两个 cua-driver 探测测试
+  漏 mock `shutil.which`/`_resolve_binary`，无 cua-driver 环境（本机+CI）必红 → CI 全红 6 次
+  未披露。修复后 489 → 491；CI 需确认转绿。
+  - 教训：新增"探测可选后端"类测试时，存在性检查（shutil.which）必须 mock；
+    且交接文档必须披露 CI 状态（之前只写"本机实测"）。
+
+## 待办清单（按优先级）
+
+1. **确认 CI 转绿**（ea76dfd 已推送；若仍有红，查 ubuntu pytest 步骤）
+2. **真机验证剩余 3 项**（docs/VERIFICATION.md，需用户在场）：IME 拼音组合、replay stale 注入、跨应用链
+3. **暴露 cua `delivery_mode: foreground`**（适配器 `_build_call_args` 未传；
+   自绘应用合成点击不可靠，这是 cua 差异化价值点）+ 单测
+4. **发布收尾**：PyPI 发布 + npm 包装（docs/PACKAGING.md 已就绪，35be53f）
+5. Kimi 融合未做（闭源）；"不抢鼠标/不抢前台"体验在门面层实现并真机验证
+
+## 环境事实（两台机器，别搞混）
+
+- **开发机（张凯文）**：cua-driver 0.19.3 已装、daemon 运行、telemetry disable；Codex++ 变体，
+  配置主目录 `C:\AppData\.codex`（非 %USERPROFILE%\.codex）——坑已沉淀为全局技能
+  `xw-lean-computer-use-mcp`；MCP 已注册 3 个（firecrawl-mcp/open-computer-use/lean-computer-use）
+- **验收机（kvxkf，本仓库在 C:\Users\kvxkf\ZCodeProject\lean-computer-use-mcp）**：
+  无 cua-driver（auto 回退 npm 后端）；npm 0.3.1 在 PATH；视觉端点 `~/.lean-cu/config.json`
+  已配置；ZCode 的 mcp.servers 已注册 lean-computer-use（LEAN_CU_ACT_OVERLAY=1）
+- 通用：git push 需代理 127.0.0.1:7897（开发机）；PowerShell→python 管道会损坏中文，
+  补丁脚本用 \uXXXX 转义
