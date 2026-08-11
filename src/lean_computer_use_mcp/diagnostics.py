@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from lean_computer_use_mcp.errors import AppNotFoundError, LeanComputerUseError
+from lean_computer_use_mcp.upstream.cua_client import CuaUpstreamClient
 from lean_computer_use_mcp.upstream.win_input import CtypesWin32Input, WindowStatus
 
 #: Upstream CLI version the fixtures and benchmarks were captured against.
@@ -251,8 +252,55 @@ def check_window_dpi(
     )
 
 
+
+def check_cua_driver(binary: str = "cua-driver") -> CheckResult:
+    """Optional cua-driver backend probe: presence + version + daemon state.
+
+    cua-driver is an optional backend (background-first input); its absence is
+    a warning, not a failure, so the doctor stays green on default installs.
+    """
+    resolved = CuaUpstreamClient._resolve_binary(binary)
+    if resolved == binary and not shutil.which(binary):
+        return CheckResult("cua_driver", "warn", f"{binary} not found (optional backend)")
+    try:
+        output = _run_version(resolved)
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return CheckResult("cua_driver", "warn", f"could not read version: {exc}")
+    version = parse_version(output or "")
+    if not version:
+        return CheckResult("cua_driver", "warn", "no version string")
+    status = _cua_daemon_state(resolved)
+    return CheckResult(
+        "cua_driver",
+        "ok",
+        f"{resolved} v{version}; daemon {status}",
+        {"version": version, "daemon": status},
+    )
+
+
+def _cua_daemon_state(binary: str) -> str:
+    """'running' | 'not running' - best-effort probe of the cua-driver daemon."""
+    try:
+        proc = subprocess.run(
+            [binary, "status"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=10,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return "unknown"
+    output = (proc.stdout or proc.stderr or "").lower()
+    return "running" if "is running" in output else "not running"
+
+
 def run_doctor(binary: str, app: str | None = None) -> DoctorReport:
-    checks = [check_binary(binary), check_upstream_version(binary)]
+    checks = [
+        check_binary(binary),
+        check_upstream_version(binary),
+        check_cua_driver(),
+    ]
     if app:
         checks.append(check_window(app))
         checks.append(check_window_dpi(app))

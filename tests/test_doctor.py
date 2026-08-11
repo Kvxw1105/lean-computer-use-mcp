@@ -162,6 +162,7 @@ def test_run_doctor_without_app_skips_window_checks(monkeypatch):
     assert names == [
         "upstream_binary",
         "upstream_version",
+        "cua_driver",
         "window",
         "window_dpi",
         "dpi_awareness",
@@ -204,3 +205,51 @@ def test_doctor_command_fails_on_hard_failure(monkeypatch, capsys):
     monkeypatch.setattr(cli, "run_doctor", lambda binary, app=None: report)
     code = cli.main(["doctor"])
     assert code == 1
+
+
+def test_check_cua_driver_found_with_daemon(monkeypatch):
+    from lean_computer_use_mcp.diagnostics import check_cua_driver
+
+    monkeypatch.setattr(
+        "lean_computer_use_mcp.diagnostics._run_version",
+        lambda binary: "cua-driver 0.19.3",
+    )
+    monkeypatch.setattr(
+        "lean_computer_use_mcp.diagnostics._cua_daemon_state",
+        lambda binary: "running",
+    )
+    result = check_cua_driver("cua-driver")
+    assert result.status == "ok"
+    assert result.data["version"] == "0.19.3"
+    assert result.data["daemon"] == "running"
+
+
+def test_check_cua_driver_missing_is_warning_not_failure(monkeypatch):
+    from lean_computer_use_mcp.diagnostics import check_cua_driver
+
+    monkeypatch.setattr(
+        "lean_computer_use_mcp.diagnostics.CuaUpstreamClient._resolve_binary",
+        staticmethod(lambda binary: binary),
+    )
+    monkeypatch.setattr(
+        "lean_computer_use_mcp.diagnostics.shutil.which", lambda binary: None
+    )
+    result = check_cua_driver("cua-driver")
+    assert result.status == "warn"
+    assert "optional" in result.detail
+
+
+def test_check_cua_driver_daemon_not_running_warns(monkeypatch):
+    from lean_computer_use_mcp.diagnostics import check_cua_driver
+
+    monkeypatch.setattr(
+        "lean_computer_use_mcp.diagnostics._run_version",
+        lambda binary: "cua-driver 0.19.3",
+    )
+    monkeypatch.setattr(
+        "lean_computer_use_mcp.diagnostics._cua_daemon_state",
+        lambda binary: "not running",
+    )
+    result = check_cua_driver("cua-driver")
+    assert result.status == "ok"  # presence is ok; daemon state is data
+    assert result.data["daemon"] == "not running"
