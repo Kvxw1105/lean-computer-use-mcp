@@ -314,3 +314,110 @@ def FakeSettings():
     from lean_computer_use_mcp.config import Settings
 
     return Settings()
+
+
+# --- delayed IME re-sample (P2-3) --------------------------------------------
+
+
+class _FakeImeSampler:
+    """Stub IME sampler with scripted sample() results."""
+
+    def __init__(self, results):
+        self.results = list(results)
+        self.calls = 0
+
+    def sample(self):
+        self.calls += 1
+        return self.results.pop(0) if self.results else (False, "", "")
+
+
+class _FakeForeground:
+    def current(self):
+        from lean_computer_use_mcp.record.win_hooks import ForegroundInfo
+
+        return ForegroundInfo("ChatGPT", 123, (0, 0, 1000, 800))
+
+
+def _poll_hook(monkeypatch, ime, delay: float = 0.02):
+    monkeypatch.setattr(
+        "lean_computer_use_mcp.record.win_hooks.time.monotonic",
+        _PollClock(),
+    )
+    from lean_computer_use_mcp.record.win_hooks import WinInputHook
+
+    return WinInputHook(
+        foreground=_FakeForeground(), ime=ime, ime_poll_delay=delay
+    )
+
+
+class _PollClock:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        value = self.now
+        self.now += 0.05  # 50ms per call: one call already passes the 20ms delay
+        return value
+
+
+def test_ime_poll_folds_late_commit_into_key_event(monkeypatch):
+    ime = _FakeImeSampler([(True, "", "字")])  # commit arrives on re-sample
+    hook = _poll_hook(monkeypatch, ime)
+    event = key("key_down", 0x4E, ts=1.0, ime_open=True)
+    hook.events.append(event)
+    hook._schedule_ime_poll(len(hook.events) - 1, ime_open=True, committed="")
+    assert hook._ime_poll_at is not None
+    hook._poll_ime()
+    updated = hook.events[0]
+    assert updated.ime_commit == "字"
+    assert updated.ime_open is True
+    assert hook._ime_poll_at is None  # one-shot, schedule cleared
+
+
+def test_ime_poll_folds_late_composition(monkeypatch):
+    ime = _FakeImeSampler([(True, "ni", "")])
+    hook = _poll_hook(monkeypatch, ime)
+    event = key("key_down", 0x4E, ts=1.0, ime_open=True)
+    hook.events.append(event)
+    hook._schedule_ime_poll(len(hook.events) - 1, ime_open=True, committed="")
+    hook._poll_ime()
+    assert hook.events[0].ime_composition == "ni"
+
+
+def test_ime_poll_not_due_does_nothing(monkeypatch):
+    ime = _FakeImeSampler([(True, "", "字")])
+    hook = _poll_hook(monkeypatch, ime)
+    event = key("key_down", 0x4E, ts=1.0, ime_open=True)
+    hook.events.append(event)
+    hook._ime_poll_index = 0
+    hook._ime_poll_at = 2000.0  # far in the future
+    hook._poll_ime()
+    assert event.ime_commit == ""
+    assert ime.calls == 0
+
+
+def test_ime_poll_keeps_existing_commit(monkeypatch):
+    ime = _FakeImeSampler([(True, "", "字")])
+    hook = _poll_hook(monkeypatch, ime)
+    event = key("key_down", 0x4E, ts=1.0, ime_open=True, commit="已")
+    hook.events.append(event)
+    hook._schedule_ime_poll(event, ime_open=True, committed="已")
+    assert hook._ime_poll_at is None  # committed already: no re-sample needed
+    hook._ime_poll_index = 0
+    hook._ime_poll_at = 0.0
+    hook._poll_ime()
+    assert hook.events[0].ime_commit == "已"  # original commit wins
+
+
+def test_ime_poll_survives_sampler_failure(monkeypatch):
+    class _Boom:
+        def sample(self):
+            raise OSError("imm32 gone")
+
+    hook = _poll_hook(monkeypatch, _Boom())
+    event = key("key_down", 0x4E, ts=1.0, ime_open=True)
+    hook.events.append(event)
+    hook._ime_poll_index = 0
+    hook._ime_poll_at = 0.0
+    hook._poll_ime()  # must not raise
+    assert hook.events[0].ime_commit == ""

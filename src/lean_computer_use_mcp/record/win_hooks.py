@@ -18,7 +18,7 @@ import ctypes.wintypes as wt
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable
 
 from lean_computer_use_mcp.errors import RealInputUnavailableError
@@ -296,6 +296,7 @@ class WinInputHook:
         foreground: WinForeground | None = None,
         on_event: Callable[[InputEvent], None] | None = None,
         ime: ImeSampler | None = None,
+        ime_poll_delay: float = 0.02,
     ) -> None:
         self.stop_vk = stop_vk
         self.stop_event = stop_event or threading.Event()
@@ -310,6 +311,12 @@ class WinInputHook:
         self._hooks: list[int] = []
         self._procs: list[Any] = []
         self._thread_id = 0
+        #: Delayed IME re-sample: the composition string can lag the key
+        #: message by a few ms (fast short compositions), so an open IME
+        #: with no commit yet schedules one more sample after this delay.
+        self.ime_poll_delay = ime_poll_delay
+        self._ime_poll_index: int | None = None
+        self._ime_poll_at: float | None = None
 
     def start(self) -> None:
         if not _IS_WINDOWS:
@@ -346,14 +353,20 @@ class WinInputHook:
         try:
             msg = wt.MSG()
             while not self.stop_event.is_set():
-                result = user32.GetMessageW(ctypes.byref(msg), None, 0, 0)
-                if result == 0:  # WM_QUIT
-                    break
-                if msg.message == _WM_HOTKEY and msg.wParam == 1:
-                    self.stop_event.set()
-                    break
-                user32.TranslateMessage(ctypes.byref(msg))
-                user32.DispatchMessageW(ctypes.byref(msg))
+                # Delayed IME re-samples need the loop to wake even when
+                # no input arrives, so poll instead of blocking forever.
+                self._poll_ime()
+                while user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 1):
+                    if msg.message == _WM_QUIT:
+                        self.stop_event.set()
+                        break
+                    if msg.message == _WM_HOTKEY and msg.wParam == 1:
+                        self.stop_event.set()
+                        break
+                    user32.TranslateMessage(ctypes.byref(msg))
+                    user32.DispatchMessageW(ctypes.byref(msg))
+                if not self.stop_event.is_set():
+                    time.sleep(0.005)
         finally:
             user32.UnregisterHotKey(None, 1)
             for hook in self._hooks:
@@ -400,6 +413,49 @@ class WinInputHook:
         self._record(self._capture("mouse_move", x=x, y=y))
         self._last_move = (x, y, time.monotonic())
         self._pending_move = None
+
+
+    def _schedule_ime_poll(self, index: int, ime_open: bool, committed: str) -> None:
+        """Arrange one delayed re-sample for a recorded key event.
+
+        The IME can update the composition (or commit text) a few
+        milliseconds after the key message, so a key that left the IME
+        open with no commit yet gets one follow-up sample after
+        ``ime_poll_delay``; the result is folded back into the event.
+        """
+        if ime_open and not committed:
+            self._ime_poll_index = index
+            self._ime_poll_at = time.monotonic() + self.ime_poll_delay
+
+    def _poll_ime(self) -> None:
+        """Run the delayed IME re-sample when it is due.
+
+        Folds a late composition/commit back into the recorded key event
+        (via ``dataclasses.replace``: events are frozen) so fast short
+        compositions (two-letter pinyin) are not lost. The raw key
+        sequence in the event remains the always-correct replay fallback
+        either way.
+        """
+        if self._ime_poll_at is None or self._ime_poll_index is None:
+            return
+        if time.monotonic() < self._ime_poll_at:
+            return
+        index = self._ime_poll_index
+        self._ime_poll_at = None
+        self._ime_poll_index = None
+        if index >= len(self.events):
+            return
+        try:
+            ime_open, composition, committed = self.ime.sample()
+        except Exception:  # noqa: BLE001 - a failed re-sample never breaks recording
+            return
+        event = self.events[index]
+        self.events[index] = replace(
+            event,
+            ime_open=event.ime_open or ime_open,
+            ime_composition=event.ime_composition or composition,
+            ime_commit=event.ime_commit or committed,
+        )
 
 
     def _on_mouse(self, code: int, wparam: int, lparam: int) -> int:
@@ -486,15 +542,15 @@ class WinInputHook:
                 return self._call_next(code, wparam, lparam)
             ime_open, composition, committed = self.ime.sample()
             if wparam == 0x0100:  # WM_KEYDOWN
-                self._record(
-                    self._capture(
-                        "key_down",
-                        vk=vk,
-                        ime_open=ime_open,
-                        ime_composition=composition,
-                        ime_commit=committed,
-                    )
+                event = self._capture(
+                    "key_down",
+                    vk=vk,
+                    ime_open=ime_open,
+                    ime_composition=composition,
+                    ime_commit=committed,
                 )
+                self._record(event)
+                self._schedule_ime_poll(len(self.events) - 1, ime_open, committed)
             elif wparam == 0x0101:  # WM_KEYUP
                 self._record(
                     self._capture(
