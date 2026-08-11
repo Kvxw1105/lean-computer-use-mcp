@@ -14,6 +14,21 @@ uv run python benchmarks/verify_pin.py --binary open-computer-use
 # expect: pinned 0.3.1, fixture hashes ok, installed upstream matches
 ```
 
+## Guided runner
+
+`lean-computer-use verify` walks the ten items below interactively
+(`Enter` = pass, `fail: <note>`, `skip: <note>`), runs a preflight
+(upstream binary + pinned version), and writes the dated report to
+`benchmarks/results/verification-<date>.md` (gitignored) with the fail hint
+for every failed item:
+
+```sh
+uv run lean-computer-use verify
+```
+
+Use it instead of hand-editing the report file. The items below remain the
+source of truth for what each check means and where to look on failure.
+
 ## 1. Install & registration smoke
 
 - `uvx --from . lean-computer-use --version` prints `0.2.0 (pinned upstream 0.3.1)`.

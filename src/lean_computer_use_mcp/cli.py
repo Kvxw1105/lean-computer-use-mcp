@@ -350,6 +350,15 @@ def main(argv: list[str] | None = None) -> int:
         help="Print the URL instead of opening a browser",
     )
 
+    verify = subparsers.add_parser(
+        "verify", help="Guided real-machine checklist (docs/VERIFICATION.md)"
+    )
+    verify.add_argument(
+        "--out",
+        default=None,
+        help="Report path (default: benchmarks/results/verification-<date>.md)",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "doctor":
@@ -370,6 +379,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_config(args)
     if args.command == "config-ui":
         return _cmd_config_ui(args)
+    if args.command == "verify":
+        return _cmd_verify(args)
 
     settings = _settings_from_args(args)
     upstream = (
@@ -837,6 +848,26 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     report = run_doctor(binary, app=args.app)
     print(report.render())
     return 0 if report.ok else 1
+
+
+def _cmd_verify(args: argparse.Namespace) -> int:
+    from lean_computer_use_mcp.verify import default_report_path, run_verification
+
+    out = Path(args.out) if args.out else default_report_path()
+    report = run_verification(out)
+    print("=" * 72)
+    print(
+        f"Verification: {report.passed} passed, {report.failed} failed, "
+        f"{report.skipped} skipped"
+    )
+    print(f"Report: {report.path}")
+    if not report.ok:
+        print("Failed or missing items must pass before a release; "
+              "fail hints are in the report.")
+        return 1
+    print("All checklist items passed on this machine. Note the date and "
+          "machine in the release notes.")
+    return 0
 
 
 def _cmd_config_ui(args: argparse.Namespace) -> int:
