@@ -16,6 +16,14 @@ Windows prerequisites (runtime only, not needed to install):
   is missing or drifts from the pin.
 - Optional vision endpoints in `~/.lean-cu/config.json` for the OCR -> LLM
   visual fallback (`lean-computer-use config` / `config-ui`).
+- Optional **cua-driver** backend (`trycua/cua`, MIT): background-first input
+  that never steals the mouse or foreground focus. Install once with
+  `irm https://cua.ai/driver/install.ps1 | iex`, then run the server with
+  `lean-computer-use serve --upstream cua-driver` (or set
+  `LEAN_CU_UPSTREAM_KIND=cua-driver`). The same model-visible contract applies;
+  `doctor` probes its version and daemon state. See
+  [docs/RESEARCH-cua-driver-as-upstream.md](docs/RESEARCH-cua-driver-as-upstream.md)
+  for the comparison and rationale.
 
 See [docs/PACKAGING.md](docs/PACKAGING.md) for MCP registration, skill
 packaging, and the release-gate benchmark matrix.
