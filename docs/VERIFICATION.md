@@ -83,9 +83,10 @@ uv run python benchmarks/verify_pin.py --binary open-computer-use
   with the first `state_id` must NOT be stale.
 - Resize or restructure the window (new panel), then `cu_act` with the old
   `state_id` -> expect `STALE_STATE` (signal `tree` or `image`).
-- Window moves at the same size are not guaranteed to invalidate (the image
-  fingerprint includes dimensions, not position); if you rely on moves to
-  invalidate state, say so in the issue tracker.
+- Move the window at the same size, then `cu_act` with the old `state_id` ->
+  expect `STALE_STATE` (signal `image`): the image fingerprint folds in the
+  window screen rect, so a translated window invalidates even when the
+  pixels are identical.
 
 ## 8. Replay auto-recovery (T5)
 

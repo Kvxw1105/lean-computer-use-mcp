@@ -68,6 +68,7 @@ class StateSnapshot:
     image_path: str | None = None
     image_bytes: int = 0
     image_fingerprint: str = ""
+    window_rect: tuple[int, int, int, int] | None = None
     state_id: str | None = None
     created_at: float | None = None
     fingerprint: str = ""

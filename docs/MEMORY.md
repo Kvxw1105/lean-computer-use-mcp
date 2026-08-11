@@ -98,6 +98,9 @@ steps before the skill and the library are built. All three text-LLM helpers
 timeouts, 429, 5xx: 30-second cooldown) automatically rotates to the next
 configured `LEAN_CU_VISION_PROVIDERS` entry, and API keys never appear in
 logs or error messages - only endpoint hosts do:
+Each of the three helpers builds its own `ProviderPool` unless one is
+injected, so failure cooldowns are per client: a dead endpoint is
+re-probed by each helper rather than shared cooling state.
 
 ```sh
 lean-computer-use compile --in recordings/subtitle-font-size.json \

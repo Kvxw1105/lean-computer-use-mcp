@@ -74,10 +74,13 @@ def _write_pin(tmp_path: Path, root: Path, files: dict[str, str]) -> Path:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
+        # The pin records the canonical LF hash (see _canonical_bytes): on
+        # Windows, write_text may have produced CRLF, so normalize here too.
+        canonical = path.read_bytes().replace(b"\r\n", b"\n")
         entries.append(
             {
                 "path": name,
-                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "sha256": hashlib.sha256(canonical).hexdigest(),
                 "bytes": path.stat().st_size,
             }
         )
@@ -150,4 +153,14 @@ def test_repo_pin_file_is_current() -> None:
     problems = verify_pin.check_fixture_hashes(
         verify_pin.load_pin(verify_pin.DEFAULT_PIN), verify_pin.REPO_ROOT
     )
+    assert problems == []
+
+
+def test_fixture_hashes_tolerate_crlf_checkout(tmp_path) -> None:
+    """A CRLF working copy (Windows core.autocrlf=true) must match the LF pin."""
+    verify_pin = _load_verify_pin()
+    root = tmp_path / "root"
+    pin_path = _write_pin(tmp_path, root, {"fixtures/a.txt": "line1\nline2\n"})
+    (root / "fixtures" / "a.txt").write_bytes(b"line1\r\nline2\r\n")
+    problems = verify_pin.check_fixture_hashes(verify_pin.load_pin(pin_path), root)
     assert problems == []

@@ -898,9 +898,10 @@ class LeanComputerUse:
             truncated_text=text_truncated,
             budget=budget,
         )
+        snapshot.window_rect = self.upstream.window_rect(app)
         snapshot.fingerprint = fingerprint(snapshot)
         if image:
-            snapshot.image_fingerprint = image_fingerprint(image)
+            snapshot.image_fingerprint = image_fingerprint(image, snapshot.window_rect)
         vision_out: dict[str, Any] = {
             "engine": None,
             "triggered": False,
@@ -1016,9 +1017,10 @@ class LeanComputerUse:
             truncated_text=text_truncated,
             budget=budget,
         )
+        snapshot.window_rect = self.upstream.window_rect(app)
         snapshot.fingerprint = fingerprint(snapshot)
         if image:
-            snapshot.image_fingerprint = image_fingerprint(image)
+            snapshot.image_fingerprint = image_fingerprint(image, snapshot.window_rect)
             path = self.images.store_bytes(image)
             snapshot.image_path = str(path)
             snapshot.image_bytes = len(image)

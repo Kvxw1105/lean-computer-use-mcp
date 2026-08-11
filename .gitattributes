@@ -1,0 +1,5 @@
+# Fixtures are hashed by content (benchmarks/verify_pin.py) and the pin
+# must reproduce on every platform, so force LF for checkout regardless of
+# core.autocrlf. New clones get LF; verify_pin additionally normalizes CRLF
+# so stale checkouts from before this file still pass.
+examples/fixtures/* text eol=lf

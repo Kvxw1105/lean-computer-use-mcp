@@ -5,7 +5,9 @@ open-computer-use CLI version (see ``diagnostics.UPSTREAM_PINNED_VERSION``).
 This script checks that:
 
 1. every fixture in ``benchmarks/upstream-pin.json`` still matches its
-   recorded sha256 (a drift means the upstream changed its output shape);
+   recorded sha256 (a drift means the upstream changed its output shape).
+   Fixture hashes are computed on CRLF-normalized bytes so Windows
+   checkouts (``core.autocrlf=true``) and LF checkouts agree;
 2. with ``--binary``, the installed upstream version matches the pin.
 
 Usage:
@@ -42,6 +44,17 @@ def load_pin(path: Path) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def _canonical_bytes(data: bytes) -> bytes:
+    """Normalize CRLF to LF before hashing so every checkout agrees.
+
+    Fixtures are text files. A Windows checkout with ``core.autocrlf=true``
+    converts them to CRLF, which would change the sha256 versus the
+    canonical LF blob. ``.gitattributes`` forces LF for new checkouts; this
+    normalization keeps the pin meaningful even for stale checkouts.
+    """
+    return data.replace(b"\r\n", b"\n")
+
+
 def check_fixture_hashes(pin: dict, root: Path) -> list[str]:
     """Return a list of problems; empty means every fixture hash matches."""
     problems: list[str] = []
@@ -50,7 +63,7 @@ def check_fixture_hashes(pin: dict, root: Path) -> list[str]:
         if not path.exists():
             problems.append(f"missing fixture: {entry['path']}")
             continue
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        digest = hashlib.sha256(_canonical_bytes(path.read_bytes())).hexdigest()
         if digest != entry["sha256"]:
             problems.append(
                 f"fixture drifted: {entry['path']} (recorded {entry['sha256'][:12]}..., "
@@ -108,7 +121,7 @@ def regenerate(pin_path: Path = DEFAULT_PIN, root: Path = REPO_ROOT) -> None:
     pin = load_pin(pin_path)
     for entry in pin["fixtures"]:
         path = root / entry["path"]
-        entry["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        entry["sha256"] = hashlib.sha256(_canonical_bytes(path.read_bytes())).hexdigest()
         entry["bytes"] = path.stat().st_size
     Path(pin_path).write_text(
         json.dumps(pin, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

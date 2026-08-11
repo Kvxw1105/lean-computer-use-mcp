@@ -202,3 +202,57 @@ def _observe_rows(metrics_path: str) -> list[dict]:
         for line in lines
         if line.strip() and json.loads(line)["tool"] == "cu_observe"
     ]
+
+
+def test_image_fingerprint_includes_window_rect():
+    image = make_png(box=(0, 0))
+    rect_a = (100, 200, 1100, 900)
+    rect_b = (300, 400, 1300, 1100)
+    assert image_fingerprint(image) == image_fingerprint(image, None)  # compat
+    assert image_fingerprint(image, rect_a) == image_fingerprint(image, rect_a)
+    assert image_fingerprint(image, rect_a) != image_fingerprint(image, rect_b)
+    assert image_fingerprint(image, rect_a) != image_fingerprint(image)
+
+
+class MovingWindowImageUpstream(EmptyTreeImageUpstream):
+    """Trivial tree, identical screenshots, but the window rect changes
+    between observe and act (the pixels are window-relative, so only the
+    rect can reveal the move)."""
+
+    def __init__(
+        self,
+        fixture_dir: Path,
+        image: bytes,
+        rects: list[tuple[int, int, int, int]],
+    ) -> None:
+        super().__init__(fixture_dir, [image, image])
+        self.rects = list(rects)
+
+    def window_rect(self, app):
+        index = min(max(0, self.reads - 1), len(self.rects) - 1)
+        return self.rects[index]
+
+
+def test_window_move_invalidates_gate_on_trivial_tree(settings):
+    image = make_png(box=(0, 0))
+    upstream = MovingWindowImageUpstream(
+        FIXTURES, image, [(100, 200, 1100, 900), (300, 400, 1300, 1100)]
+    )
+    engine = LeanComputerUse(upstream, settings)
+    observed = engine.observe("ChatGPT")
+    result = engine.act("ChatGPT", observed["state_id"], "click", element_index="1")
+    assert result["ok"] is False
+    assert result["error"] == "STALE_STATE"
+    assert result["signal"] == "image"
+    assert upstream.actions == 0  # nothing executed on a moved window
+
+
+def test_window_stable_rect_does_not_false_positive(settings):
+    image = make_png(box=(0, 0))
+    stable = (100, 200, 1100, 900)
+    upstream = MovingWindowImageUpstream(FIXTURES, image, [stable, stable])
+    engine = LeanComputerUse(upstream, settings)
+    observed = engine.observe("ChatGPT")
+    result = engine.act("ChatGPT", observed["state_id"], "click", element_index="1")
+    assert result["ok"] is True
+    assert result.get("error") != "STALE_STATE"

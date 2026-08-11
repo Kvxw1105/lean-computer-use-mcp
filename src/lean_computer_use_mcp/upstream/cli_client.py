@@ -301,3 +301,23 @@ class CliUpstreamClient(UpstreamClient):
                 "maximize_window requires the Windows client (no win_input backend)"
             )
         return self._win_input.maximize_window(app, title)
+
+    def window_rect(self, app: str) -> tuple[int, int, int, int] | None:
+        """Screen rect (left, top, right, bottom) of the main window.
+
+        ``None`` when no Win32 backend or when window enumeration fails: the
+        stale gate must never depend on the rect succeeding, so failures
+        degrade to "no rect" instead of raising.
+        """
+        if self._win_input is None:
+            return None
+        try:
+            window = self._win_input.find_main_window(app)
+        except Exception:  # noqa: BLE001 - best-effort rect for the gate
+            return None
+        return (
+            window.left,
+            window.top,
+            window.left + window.width,
+            window.top + window.height,
+        )

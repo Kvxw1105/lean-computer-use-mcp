@@ -29,13 +29,13 @@
     },
     {
       "path": "examples/fixtures/recording_font_size.json",
-      "sha256": "04efce055ed16b29e59d106091381e602127bbd896bbf8a9a824fb61b5a11042",
-      "bytes": 5582
+      "sha256": "c6d8190952dfd5a760bc4b1a0cceda579411a6e34c8a15809e0b3a5e331a5050",
+      "bytes": 5319
     },
     {
       "path": "examples/fixtures/memory_components.json",
-      "sha256": "4ce393c844ce9e1d7b142f729987306f25464a8a4cac7712da08ab37a7ab1299",
-      "bytes": 2047
+      "sha256": "1546106f62f5359a7c8d5309a877b59b7e7152692d088f54478027578036a97c",
+      "bytes": 1951
     }
   ]
 }

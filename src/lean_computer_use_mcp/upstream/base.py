@@ -86,3 +86,13 @@ class UpstreamClient(ABC):
         input-injection implementation (see upstream.win_input).
         """
         raise RealInputUnavailableError("maximize_window is not available on this client")
+
+    def window_rect(self, app: str) -> tuple[int, int, int, int] | None:
+        """Screen rect (left, top, right, bottom) of the app's main window.
+
+        ``None`` when unavailable (fake client, non-Windows, or no window
+        found). The facade folds the rect into the screenshot fingerprint so
+        a moved window invalidates the stale gate even when the UIA tree is
+        trivial; it is best-effort and never raises.
+        """
+        return None

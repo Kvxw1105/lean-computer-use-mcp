@@ -10,6 +10,10 @@ failover as the vision tier so a dead endpoint cannot stall a curation run:
 - the next healthy provider is used automatically and the preferred one is
   retried once its cooldown expires.
 
+Each client builds its own ``ProviderPool`` unless one is injected
+(``pool=``), so cooldowns are per client: enrich/refine/recall do not share
+cooling state.
+
 API keys are never logged or exposed in errors - only endpoint hosts are.
 """
 
