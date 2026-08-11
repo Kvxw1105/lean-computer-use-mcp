@@ -5,7 +5,19 @@ All notable changes to lean-computer-use-mcp. Versions follow the package
 
 ## 0.2.0 (2026-08-11)
 
-Phase-2 hardening and release engineering. Test suite: 317 passed, 1 skipped.
+Phase-2 hardening and release engineering. Test suite: 459 passed, 1 skipped
+(ruff clean; CI runs pytest on Windows + Ubuntu with LF fixtures).
+
+### Fixes after the phase-2 review (P1)
+- Fixture pin is line-ending safe: `.gitattributes` forces LF for
+  `examples/fixtures/` and `verify_pin` hashes CRLF-normalized bytes, so
+  Windows checkouts no longer fail the pin check. (`1c26a4b`)
+- Screenshot fingerprint folds in the window screen rect, so a self-drawn-app
+  window moved at the same size now invalidates stale state (signal `image`).
+  (`1c26a4b`)
+- IME recording re-samples composition after fast short pinyin so late
+  commit/composition text is not lost; raw key sequences remain the replay
+  fallback. (`1f92da6`)
 
 ### Tools & facade
 - `cu_window`: list/activate/maximize with occlusion detection (occlusion is

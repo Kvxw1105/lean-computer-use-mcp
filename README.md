@@ -4,8 +4,19 @@ Low-context, state-safe MCP facade over [Open Computer Use](https://github.com/i
 
 ## Install
 
-`pip install "git+https://github.com/Kvxw1105/lean-computer-use-mcp"`
-or `uvx --from "git+https://github.com/Kvxw1105/lean-computer-use-mcp" lean-computer-use serve --fake`.
+```sh
+pip install "git+https://github.com/Kvxw1105/lean-computer-use-mcp"
+# or, without a checkout:
+uvx --from "git+https://github.com/Kvxw1105/lean-computer-use-mcp" lean-computer-use serve --fake
+```
+
+Windows prerequisites (runtime only, not needed to install):
+
+- `open-computer-use` **0.3.1** (npm global) on PATH; `doctor` reports when it
+  is missing or drifts from the pin.
+- Optional vision endpoints in `~/.lean-cu/config.json` for the OCR -> LLM
+  visual fallback (`lean-computer-use config` / `config-ui`).
+
 See [docs/PACKAGING.md](docs/PACKAGING.md) for MCP registration, skill
 packaging, and the release-gate benchmark matrix.
 
@@ -14,8 +25,11 @@ packaging, and the release-gate benchmark matrix.
 > errors, extended `doctor`, screenshot-fingerprint stale gate for trivial-tree
 > apps, replay auto-recovery, IME + drag recording, and text-LLM ProviderPool
 > failover. Release gates (success-rate matrix, upstream fixture pin) run in CI;
-> the real-machine checklist lives in docs/VERIFICATION.md. 317 tests pass
-> (1 skipped). Not yet recommended for production use.
+> **459 tests pass (1 skipped)** and ruff is clean. The real-machine checklist
+> lives in docs/VERIFICATION.md - code and unit tests are done, the 10
+> real-desktop items are pending verification on a live Windows desktop.
+> The package builds (`uv build`) but is **not yet published to PyPI**, and is
+> not yet recommended for production use.
 
 ## Why this project exists
 

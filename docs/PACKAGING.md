@@ -14,7 +14,7 @@ From the repository (development):
 
 ```sh
 uv sync --all-extras
-uv run pytest          # full suite: 304 passed, 1 skipped (2026-08-11)
+uv run pytest          # full suite: 459 passed, 1 skipped (2026-08-11)
 ```
 
 From a clean machine (no checkout needed):
@@ -82,8 +82,12 @@ MCP "plugins" are just a registered server: point the client at
 no plugin binary to build; the wheel is the artifact:
 
 ```sh
-uv build          # dist/lean_computer_use_mcp-*.whl
+uv build          # dist/lean_computer_use_mcp-0.2.0.tar.gz + .whl (verified 2026-08-11)
 ```
+
+The package is **not yet published to PyPI**; installs come from git until the
+first release. Publishing is `uv build && uv publish` after the real-machine
+checklist (docs/VERIFICATION.md) passes.
 
 ## Verification
 
