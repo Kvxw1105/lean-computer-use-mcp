@@ -25,9 +25,13 @@ packaging, and the release-gate benchmark matrix.
 > errors, extended `doctor`, screenshot-fingerprint stale gate for trivial-tree
 > apps, replay auto-recovery, IME + drag recording, and text-LLM ProviderPool
 > failover. Release gates (success-rate matrix, upstream fixture pin) run in CI;
-> **459 tests pass (1 skipped)** and ruff is clean. The real-machine checklist
-> lives in docs/VERIFICATION.md - code and unit tests are done, the 10
-> real-desktop items are pending verification on a live Windows desktop.
+> **472 tests pass (1 skipped)** and ruff is clean. The real-machine checklist
+> (docs/VERIFICATION.md) ran on a live Windows desktop on 2026-08-11: 7/10
+> items pass (install/observe, doctor, drag recording, real-input fallback,
+> window ambiguity/occlusion, screenshot-fingerprint stale gate, metrics
+> honesty); 3 need a human at the keyboard (IME pinyin composition, replay
+> stale-injection, cross-app chain). Verification found and fixed two bugs:
+> GBK/UTF-8 upstream output decoding and image-bytes metric semantics.
 > The package builds (`uv build`) but is **not yet published to PyPI**, and is
 > not yet recommended for production use.
 
