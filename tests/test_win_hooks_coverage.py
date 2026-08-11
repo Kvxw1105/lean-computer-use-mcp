@@ -10,15 +10,15 @@ import pytest
 import lean_computer_use_mcp.record.win_hooks as win_hooks_mod
 from lean_computer_use_mcp.errors import RealInputUnavailableError
 from lean_computer_use_mcp.record.win_hooks import (
-    ForegroundInfo,
-    ImeSampler,
-    WinForeground,
-    WinInputHook,
     _KBDLLHOOKSTRUCT,
     _MSLLHOOKSTRUCT,
     _VK_R,
     _WM_HOTKEY,
     _WM_QUIT,
+    ForegroundInfo,
+    ImeSampler,
+    WinForeground,
+    WinInputHook,
 )
 
 _MOUSE_MOUSEMOVE = 0x0200
