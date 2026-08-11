@@ -11,10 +11,10 @@ from PIL import Image
 import lean_computer_use_mcp.record.overlay as overlay_mod
 from lean_computer_use_mcp.errors import RealInputUnavailableError
 from lean_computer_use_mcp.record.overlay import (
-    WinGlowOverlay,
     _WM_HIDE,
     _WM_QUIT,
     _WM_UPDATE,
+    WinGlowOverlay,
     _def_window_proc,
     premultiply_alpha,
     render_edge,
