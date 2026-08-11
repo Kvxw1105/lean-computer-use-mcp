@@ -1,8 +1,10 @@
 # Handoff: lean-computer-use-mcp
 
-> Written 2026-08-09, refreshed 2026-08-10. Read this first, then `docs/DESIGN.md`,
+> Written 2026-08-09, refreshed 2026-08-11. Read this first, then `docs/DESIGN.md`,
 > `docs/PROTOCOL.md`, `docs/MEMORY.md`, `docs/RECORDING.md`,
 > `docs/VISION.md`, `docs/SECURITY.md`, `docs/BENCHMARKS.md`, `AGENTS.md`.
+> New agents onboarding: `docs/AGENT_START_PROMPT.md` is the self-contained
+> handoff template (status, engine landscape, todo list, machine facts).
 
 ## Identity
 
