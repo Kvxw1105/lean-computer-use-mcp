@@ -212,6 +212,14 @@ def test_check_cua_driver_found_with_daemon(monkeypatch):
     from lean_computer_use_mcp.diagnostics import check_cua_driver
 
     monkeypatch.setattr(
+        "lean_computer_use_mcp.diagnostics.CuaUpstreamClient._resolve_binary",
+        staticmethod(lambda binary: "C:/bin/cua-driver.exe"),
+    )
+    monkeypatch.setattr(
+        "lean_computer_use_mcp.diagnostics.shutil.which",
+        lambda binary: "C:/bin/cua-driver.exe",
+    )
+    monkeypatch.setattr(
         "lean_computer_use_mcp.diagnostics._run_version",
         lambda binary: "cua-driver 0.19.3",
     )
@@ -240,9 +248,23 @@ def test_check_cua_driver_missing_is_warning_not_failure(monkeypatch):
     assert "optional" in result.detail
 
 
-def test_check_cua_driver_daemon_not_running_warns(monkeypatch):
+def test_check_cua_driver_daemon_state_is_data_not_failure(monkeypatch):
+    """Presence is ok; the daemon state is data, not a hard failure.
+
+    Without mocking binary resolution these tests fail on any machine
+    without cua-driver installed (including CI runners): the existence
+    check short-circuits before the version probe runs.
+    """
     from lean_computer_use_mcp.diagnostics import check_cua_driver
 
+    monkeypatch.setattr(
+        "lean_computer_use_mcp.diagnostics.CuaUpstreamClient._resolve_binary",
+        staticmethod(lambda binary: "C:/bin/cua-driver.exe"),
+    )
+    monkeypatch.setattr(
+        "lean_computer_use_mcp.diagnostics.shutil.which",
+        lambda binary: "C:/bin/cua-driver.exe",
+    )
     monkeypatch.setattr(
         "lean_computer_use_mcp.diagnostics._run_version",
         lambda binary: "cua-driver 0.19.3",
