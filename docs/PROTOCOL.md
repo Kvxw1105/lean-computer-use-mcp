@@ -1,6 +1,33 @@
 # Protocol
 
-## 1. Tools
+## 0. Backends
+
+The facade talks to a desktop-automation backend behind one interface
+(`UpstreamClient`). Two backends are supported; the configured one is a
+deployment choice, not a model-visible one.
+
+- **open-computer-use** (default): the upstream this project was built on.
+  Output and errors as described below.
+- **cua-driver** (optional): the open-source background computer-use runtime
+  from `trycua/cua` (MIT; also the engine behind Hermes' computer_use).
+  Model-visible element tables are rendered in the same format, so all
+  downstream behavior (state gate, delta, vision fallback, replay) is
+  identical. Behavioral differences:
+
+  - Actions are background-first: no cursor move, no focus steal. The only
+    focus-stealing path is the explicit `cu_window activate` tool.
+  - Apps/windows are resolved by pid/window; the largest visible window wins
+    (same rule as `find_main_window`).
+  - When a target only accepts real foreground input, the backend refuses
+    with a structured refusal instead of failing silently. The facade maps it
+    to `UPSTREAM_ERROR` with `reason` one of `background_unavailable` /
+    `background_occluded` / `window_not_found` / `stale_snapshot` / `timeout`.
+    A `background_unavailable` result is a state, not a crash: re-observe and
+    decide whether an explicit foreground path is acceptable.
+  - `cu_observe` screenshots come from the backend at native DPI (no DPI
+    scaling offsets); the coordinate contract (window-local screenshot pixels)
+    is unchanged.
+
 
 ### 1.1 `cu_find_app`
 
