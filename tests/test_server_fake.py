@@ -330,3 +330,41 @@ def test_observe_include_screenshot_counts_base64_payload(settings):
     row = [r for r in _rows(Path(settings.metrics_path)) if r["tool"] == "cu_observe"][-1]
     assert row["image_bytes"] == len(observed["screenshot"]["data"])
     assert row["image_payloads"] == 1
+
+
+def test_act_foreground_click_requires_coordinates(fake_upstream, settings):
+    engine = LeanComputerUse(fake_upstream, settings)
+    observed = engine.observe("ChatGPT")
+    result = engine.act(
+        "ChatGPT", observed["state_id"], "click", click_method="foreground"
+    )
+    assert result["ok"] is False
+    assert result["error"] == "ELEMENT_NOT_FOUND"
+
+
+def test_act_foreground_click_rejects_element_index(fake_upstream, settings):
+    engine = LeanComputerUse(fake_upstream, settings)
+    observed = engine.observe("ChatGPT")
+    result = engine.act(
+        "ChatGPT",
+        observed["state_id"],
+        "click",
+        element_index="12",
+        click_method="foreground",
+    )
+    assert result["ok"] is False
+    assert result["error"] == "ELEMENT_NOT_FOUND"
+
+
+def test_act_foreground_click_with_coordinates_succeeds(fake_upstream, settings):
+    engine = LeanComputerUse(fake_upstream, settings)
+    observed = engine.observe("ChatGPT")
+    result = engine.act(
+        "ChatGPT",
+        observed["state_id"],
+        "click",
+        click_method="foreground",
+        x=10,
+        y=20,
+    )
+    assert result["ok"] is True

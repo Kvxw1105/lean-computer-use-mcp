@@ -206,13 +206,13 @@ class LeanComputerUse:
                         "error": "ELEMENT_NOT_FOUND",
                         "message": "click requires element_index or x/y",
                     }
-            if action == "click" and click_method == "real":
+            if action == "click" and click_method in ("real", "foreground"):
                 if has_index or not has_coords:
                     return {
                         "ok": False,
                         "error": "ELEMENT_NOT_FOUND",
                         "message": (
-                            "click_method 'real' requires x/y only "
+                            f"click_method {click_method!r} requires x/y only "
                             "(element_index is not supported)",
                         ),
                     }

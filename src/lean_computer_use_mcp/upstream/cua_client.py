@@ -27,6 +27,7 @@ import shutil
 import subprocess
 import sys
 import time
+from typing import Any
 
 from lean_computer_use_mcp.errors import (
     AppNotFoundError,
@@ -450,7 +451,7 @@ class CuaUpstreamClient(UpstreamClient):
                     "window_id": window_id,
                     "element_index": int(args["element_index"]),
                 }
-            return {
+            call: dict[str, Any] = {
                 "pid": pid,
                 "window_id": window_id,
                 "x": int(args["x"]),
@@ -458,6 +459,12 @@ class CuaUpstreamClient(UpstreamClient):
                 "count": int(args.get("click_count", 1) or 1),
                 "button": args.get("mouse_button", "left") or "left",
             }
+            # Foreground delivery is cua's only focus-stealing escalation;
+            # background synthesized clicks can be ignored by self-drawn
+            # apps (JianYing, Kuark), so the facade forwards it on request.
+            if args.get("click_method") == "foreground":
+                call["delivery_mode"] = "foreground"
+            return call
         if cua_tool == "right_click":
             return {
                 "pid": pid,

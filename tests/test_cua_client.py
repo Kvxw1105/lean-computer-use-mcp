@@ -185,6 +185,45 @@ def test_act_with_refresh_click_coordinates(monkeypatch):
     assert registry["click"]["x"] == 100
     assert registry["click"]["y"] == 200
     assert registry["click"]["button"] == "right"
+    # Background delivery is the default; foreground is opt-in.
+    assert "delivery_mode" not in registry["click"]
+
+
+def test_act_with_refresh_click_foreground_delivery_mode(monkeypatch):
+    registry = {}
+    client = _client(monkeypatch, calls=registry)
+    client.act_with_refresh(
+        "Notepad",
+        "click",
+        {"app": "Notepad", "x": 100, "y": 200, "click_method": "foreground"},
+        80,
+        8,
+        160,
+    )
+    assert registry["click"]["delivery_mode"] == "foreground"
+    assert registry["click"]["x"] == 100
+    assert registry["click"]["y"] == 200
+
+
+def test_act_with_refresh_click_element_index_ignores_foreground(monkeypatch):
+    registry = {}
+    client = _client(monkeypatch, calls=registry)
+    client.act_with_refresh(
+        "Notepad",
+        "click",
+        {
+            "app": "Notepad",
+            "element_index": "4",
+            "click_method": "foreground",
+        },
+        80,
+        8,
+        160,
+    )
+    # Element-index clicks use the background UIA Invoke path; the
+    # foreground delivery_mode applies to pixel coordinates only.
+    assert "delivery_mode" not in registry["click"]
+    assert registry["click"]["element_index"] == 4
 
 
 def test_act_with_refresh_maps_all_actions(monkeypatch):

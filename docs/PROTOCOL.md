@@ -119,7 +119,7 @@ Inputs:
 | `key` | string | null | For `press_key` |
 | `direction` | string | null | For `scroll` |
 | `pages` | float | 1.0 | For `scroll` |
-| `click_method` | string | null | `auto`, `accessibility`, `app_post`, `real` |
+| `click_method` | string | null | `auto`, `accessibility`, `app_post`, `real`, `foreground` |
 | `mouse_button` | string | null | `left`, `right`, `middle` |
 | `secondary_action` | string | null | For `secondary_action` |
 | `x` | int | null | For `click`: screenshot pixel X (mutually exclusive with `element_index`) |
@@ -158,6 +158,20 @@ because custom-rendered apps (for example JianYing) ignore synthesized
   `path` is `upstream` (the configured client executed the click) or
   `fallback` (the facade's own backend executed it after an upstream
   failure). Metrics rows for fallback clicks set `real_input_fallback: true`.
+
+`click_method="foreground"` is the cua-driver equivalent escalation:
+pixel-coordinate clicks are sent with `delivery_mode: "foreground"`, the
+driver's only focus-stealing input path. It exists for the same reason as
+`real` - self-drawn apps (JianYing, Kuark) can ignore background
+synthesized clicks - while staying inside cua's own click pipeline. Rules:
+
+- `x`/`y` only; `element_index` is rejected for `foreground` clicks
+  (element-index clicks always use the background UIA Invoke path).
+- cua-driver backend only: with the open-computer-use (npm) backend the
+  field is accepted and ignored, so a plan does not break when the engine
+  resolves differently.
+- It may steal foreground focus, exactly like `real`: the skill must
+  request it explicitly, never by default.
 
 Errors: `REAL_INPUT_UNAVAILABLE` when no Win32 input backend exists,
 `APP_NOT_FOUND` (`reason: "window_not_found"`) when no matching window is
