@@ -113,7 +113,13 @@ class _GUITHREADINFO(ctypes.Structure):
     ]
 
 
-_HOOKPROC = ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_int, wt.WPARAM, wt.LPARAM)
+# Windows-only callback type. ``WINFUNCTYPE`` does not exist in ``ctypes`` on
+# other platforms; ``CFUNCTYPE`` keeps the module importable everywhere (same
+# ABI fallback as ``record/overlay.py``). Only Win32 paths build callbacks.
+if _IS_WINDOWS:
+    _HOOKPROC = ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_int, wt.WPARAM, wt.LPARAM)
+else:
+    _HOOKPROC = ctypes.CFUNCTYPE(ctypes.c_long, ctypes.c_int, wt.WPARAM, wt.LPARAM)
 
 
 def _win32_signatures() -> None:
