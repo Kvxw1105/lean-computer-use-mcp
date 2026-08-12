@@ -256,6 +256,11 @@ def test_refusal_maps_window_not_found(monkeypatch):
 
 
 def test_daemon_auto_start_when_not_running(monkeypatch):
+    # Auto-start is a Windows-only path; force the platform flags (client
+    # construction instantiates the Win32 input backend, which also checks
+    # win_input._IS_WINDOWS) so the daemon-start branch runs on CI (linux) too.
+    monkeypatch.setattr("lean_computer_use_mcp.upstream.cua_client._IS_WINDOWS", True)
+    monkeypatch.setattr("lean_computer_use_mcp.upstream.win_input._IS_WINDOWS", True)
     client = CuaUpstreamClient(binary="cua-driver")
     state = {"running": False, "popen": None}
 

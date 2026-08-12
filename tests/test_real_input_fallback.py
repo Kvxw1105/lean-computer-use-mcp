@@ -168,7 +168,10 @@ def test_check_click_bounds_pure():
         assert excinfo.value.reason == "out_of_bounds"
 
 
-def test_ctypes_click_wraps_win32_failures():
+def test_ctypes_click_wraps_win32_failures(monkeypatch):
+    # click() refuses off Windows; force the platform flag so the wrapped
+    # Win32 failure path is exercised on CI (linux) too.
+    monkeypatch.setattr("lean_computer_use_mcp.upstream.win_input._IS_WINDOWS", True)
     class BoomUser32:
         def SetCursorPos(self, *args):
             raise OSError("win32 refused")

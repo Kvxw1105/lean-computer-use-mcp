@@ -182,6 +182,11 @@ def test_decode_upstream_probes_gbk_and_utf8(monkeypatch):
 
 
 def test_subprocess_decodes_gbk_stdout(monkeypatch):
+    # The pinned upstream binary is not installed in CI; _subprocess probes
+    # shutil.which before running, so resolve the name without a real binary.
+    monkeypatch.setattr(
+        "lean_computer_use_mcp.upstream.cli_client.shutil.which", lambda name: name
+    )
     client = CliUpstreamClient(binary="open-computer-use")
     payload = json.dumps(
         {"content": [{"type": "text", "text": "??"}], "isError": False},
