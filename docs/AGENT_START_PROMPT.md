@@ -14,7 +14,7 @@ Hermes cua-driver 双后端），让廉价单模态模型也能稳定操控 Wind
 ## 1. 位置与状态（以 origin/main 为准）
 
 - GitHub（单一事实来源）：`https://github.com/Kvxw1105/lean-computer-use-mcp`
-- 本机路径：clone 到任意目录（建议 `D:\D-Project\2-lean-computer-use-mcp` 或
+- 本机路径：clone 到任意目录（建议 `D:\A-Project\2-lean-computer-use-mcp` 或
   `C:\Users\<you>\...\lean-computer-use-mcp`），独立 .venv
 - 测试：`uv sync --all-extras` + `uv run pytest`（最近实测 **491 passed, 1 skipped**，
   ruff 干净；以实际 checkout 为准）
