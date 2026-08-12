@@ -98,7 +98,7 @@ def windll_env(monkeypatch):
     kernel32 = _FuncDll()
     imm32 = _FuncDll()
     monkeypatch.setattr(win_hooks_mod, "_IS_WINDOWS", True)
-    monkeypatch.setattr(ctypes, "windll", _FakeWindll(user32, kernel32, imm32))
+    monkeypatch.setattr(ctypes, "windll", _FakeWindll(user32, kernel32, imm32), raising=False)
     return user32, kernel32, imm32
 
 
@@ -281,7 +281,7 @@ class _FgUser32:
 
 def test_foreground_current_returns_metadata(monkeypatch):
     fake = _FgUser32()
-    monkeypatch.setattr(ctypes, "windll", _FakeWindll(user32=fake))
+    monkeypatch.setattr(ctypes, "windll", _FakeWindll(user32=fake), raising=False)
     info = WinForeground().current()
     assert info.window_title == "ChatGPT"
     assert info.window_pid == 4242
@@ -290,7 +290,7 @@ def test_foreground_current_returns_metadata(monkeypatch):
 
 def test_foreground_current_empty_when_no_window(monkeypatch):
     fake = _FgUser32(hwnd=0)
-    monkeypatch.setattr(ctypes, "windll", _FakeWindll(user32=fake))
+    monkeypatch.setattr(ctypes, "windll", _FakeWindll(user32=fake), raising=False)
     info = WinForeground().current()
     assert info == ForegroundInfo("", 0, None)
 

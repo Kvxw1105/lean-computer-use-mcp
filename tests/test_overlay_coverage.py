@@ -111,7 +111,7 @@ class _PopScript:
 def win_env(monkeypatch):
     windll = _FakeWindll()
     monkeypatch.setattr(overlay_mod, "_IS_WINDOWS", True)
-    monkeypatch.setattr(ctypes, "windll", windll)
+    monkeypatch.setattr(ctypes, "windll", windll, raising=False)
     monkeypatch.setattr(overlay_mod, "_user32_cache", None)
     monkeypatch.setattr(overlay_mod, "_gdi32_cache", None)
     return windll

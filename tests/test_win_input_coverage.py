@@ -170,7 +170,7 @@ def win32_env(monkeypatch):
     kernel32 = FakeKernel32()
     shcore = FakeShcore()
     monkeypatch.setattr(win_input_mod, "_IS_WINDOWS", True)
-    monkeypatch.setattr(ctypes, "windll", FakeWindll(user32, kernel32, shcore))
+    monkeypatch.setattr(ctypes, "windll", FakeWindll(user32, kernel32, shcore), raising=False)
     monkeypatch.setattr(
         ctypes,
         "WINFUNCTYPE",
