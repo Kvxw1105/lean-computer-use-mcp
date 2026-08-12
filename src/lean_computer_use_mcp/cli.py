@@ -473,6 +473,32 @@ def _print_live_steps(steps) -> None:
         print(f"[live] {step.describe()}", flush=True)
 
 
+def _print_recording_summary(recording) -> None:
+    """Print the recorded steps after stopping so the capture can be verified
+    without opening the recording JSON.
+
+    ``type_text`` steps whose composed text was not captured (IME sampling
+    gap) get an explicit warning: replay falls back to the raw key sequence.
+    """
+    for index, step in enumerate(recording.steps, start=1):
+        print(f"  {index}. {step.describe()}", flush=True)
+    missing = [
+        index
+        for index, step in enumerate(recording.steps, start=1)
+        if step.action == "type_text"
+        and not step.value
+        and not step.value_placeholder
+    ]
+    if missing:
+        labels = ", ".join(f"#{i}" for i in missing)
+        print(
+            f"Warning: type_text step {labels} has no captured composed text "
+            "(IME sampling gap); replay will fall back to the raw key "
+            "sequence.",
+            flush=True,
+        )
+
+
 def _cmd_record(args: argparse.Namespace) -> int:
     settings = _settings_from_args(args)
     upstream = build_upstream(settings, args.fake)
@@ -524,6 +550,7 @@ def _cmd_record(args: argparse.Namespace) -> int:
     print(
         f"Recorded {len(recording.steps)} steps ({recording.metrics.duration_ms} ms) -> {out_path}"
     )
+    _print_recording_summary(recording)
     print(f"Next: lean-computer-use compile --in {out_path}")
     return 0
 
