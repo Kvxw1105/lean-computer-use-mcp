@@ -199,3 +199,84 @@ def test_win_overlay_requires_windows():
         pytest.skip("guard is only exercised off Windows")
     with pytest.raises(RealInputUnavailableError):
         WinGlowOverlay().show()
+
+
+def test_wave_factor_comet_sharpens_crests():
+    # Peak position (wave == 1.0, sin(pi/2)): comet brightens the crest.
+    peak_plain = _wave_factor(0.25, phase=0.0, waves=1.0, amplitude=0.3)
+    peak_comet = _wave_factor(0.25, phase=0.0, waves=1.0, amplitude=0.3, comet=0.55)
+    assert peak_comet > peak_plain
+    # Trough position (wave == -1.0, sin(3*pi/2)): comet dims it.
+    trough_plain = _wave_factor(0.75, phase=0.0, waves=1.0, amplitude=0.3)
+    trough_comet = _wave_factor(0.75, phase=0.0, waves=1.0, amplitude=0.3, comet=0.55)
+    assert trough_comet < trough_plain
+    # All-zero keeps the static default.
+    assert _wave_factor(0.3, phase=0.0, waves=2.5, amplitude=0.0, comet=0.0) == 1.0
+
+
+def test_pulse_factor_breathes_with_phase():
+    from lean_computer_use_mcp.record.overlay import _pulse_factor
+
+    assert _pulse_factor(0.0, pulse=0.0) == 1.0
+    # Peak breath at phase=0.25 (sin(pi/2) == 1), trough at 0.75.
+    assert _pulse_factor(0.25, pulse=0.25) > _pulse_factor(0.75, pulse=0.25)
+    assert _pulse_factor(0.25, pulse=0.25) == 1.0
+    assert _pulse_factor(0.75, pulse=0.25) == 1.0 - 0.25
+    for phase in (0.0, 0.25, 0.5, 0.75):
+        value = _pulse_factor(phase, pulse=0.25)
+        assert 1.0 - 0.25 <= value <= 1.0
+
+
+def test_render_glow_comet_pulse_creates_energy_flow():
+    plain = render_glow(320, 200, amplitude=0.5, phase=0.0)
+    comet = render_glow(320, 200, amplitude=0.5, comet=0.55, pulse=0.25, phase=0.0)
+    assert comet.tobytes() != plain.tobytes()
+    # Energy pulse: the brightest crest alpha can exceed the plain wave's.
+    comet_alphas = [comet.getpixel((x, 0))[3] for x in range(0, 320)]
+    plain_alphas = [plain.getpixel((x, 0))[3] for x in range(0, 320)]
+    assert max(comet_alphas) >= max(plain_alphas)
+    # Breathing: the whole edge dims at the other half-cycle.
+    dimmed = render_glow(320, 200, amplitude=0.5, comet=0.55, pulse=0.25, phase=0.5)
+    assert sum(dimmed.getpixel((x, 0))[3] for x in range(0, 320)) < sum(
+        comet.getpixel((x, 0))[3] for x in range(0, 320)
+    )
+
+
+def test_render_edge_comet_pulse_defaults_stay_static():
+    static = render_edge(
+        "top", 320, 14, 5, (76, 111, 247), (166, 88, 248), amplitude=0.0
+    )
+    assert static.tobytes() != b""  # sanity: strip renders
+    # Defaults (comet=0, pulse=0) reproduce the original static frame.
+    again = render_edge(
+        "top",
+        320,
+        14,
+        5,
+        (76, 111, 247),
+        (166, 88, 248),
+        amplitude=0.0,
+        comet=0.0,
+        pulse=0.0,
+    )
+    assert again.tobytes() == static.tobytes()
+
+
+def test_win_overlay_scifi_defaults_and_render_passthrough(monkeypatch):
+    overlay = WinGlowOverlay()
+    assert overlay._comet == 0.55
+    assert overlay._pulse == 0.25
+    seen = {}
+
+    def fake_render_edge(*args, **kwargs):
+        seen["kwargs"] = kwargs
+        return Image.new("RGBA", (4, 4), (0, 0, 0, 0))
+
+    monkeypatch.setattr(
+        "lean_computer_use_mcp.record.overlay.render_edge", fake_render_edge
+    )
+    overlay._hwnds = [1]
+    overlay._strips = [(0, 0, 100, 14)]
+    overlay._render_frame(0.25)
+    assert seen["kwargs"]["comet"] == 0.55
+    assert seen["kwargs"]["pulse"] == 0.25

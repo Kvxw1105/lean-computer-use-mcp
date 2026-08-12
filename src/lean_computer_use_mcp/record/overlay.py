@@ -137,6 +137,8 @@ def render_glow(
     phase: float = 0.0,
     waves: float = 2.5,
     amplitude: float = 0.0,
+    comet: float = 0.0,
+    pulse: float = 0.0,
 ) -> Image.Image:
     """Build an RGBA glow frame: transparent center, blue-purple screen edges.
 
@@ -149,7 +151,8 @@ def render_glow(
     phase)))`` with ``p`` running around the screen perimeter so the four
     edges form one continuous flow. ``phase`` is measured in turns (0..1 for
     one full cycle). ``amplitude=0`` (default) keeps the frame static and
-    exactly matches the original glow.
+    exactly matches the original glow. ``comet`` sharpens the wave crests
+    into energy pulses; ``pulse`` breathes the whole edge's brightness.
     """
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     if width <= 0 or height <= 0:
@@ -173,10 +176,16 @@ def render_glow(
         else:
             t = (i - inner) / max(1, band - inner)
             alpha.putpixel((0, i), int(255 * (1.0 - t) ** 2))
-    top_mask = _edge_mask(alpha, width, band, phase, waves, amplitude, 0)
-    bottom_mask = _edge_mask(alpha, width, band, phase, waves, amplitude, 1)
-    left_mask = _edge_mask(alpha, height, band, phase, waves, amplitude, 2)
-    right_mask = _edge_mask(alpha, height, band, phase, waves, amplitude, 3)
+    top_mask = _edge_mask(alpha, width, band, phase, waves, amplitude, 0, comet, pulse)
+    bottom_mask = _edge_mask(
+        alpha, width, band, phase, waves, amplitude, 1, comet, pulse
+    )
+    left_mask = _edge_mask(
+        alpha, height, band, phase, waves, amplitude, 2, comet, pulse
+    )
+    right_mask = _edge_mask(
+        alpha, height, band, phase, waves, amplitude, 3, comet, pulse
+    )
 
     mask = Image.new("L", (width, height), 0)
     for region, origin in (
@@ -192,15 +201,34 @@ def render_glow(
     return Image.merge("RGBA", (r, g, b, mask))
 
 
-def _wave_factor(position: float, phase: float, waves: float, amplitude: float) -> float:
-    """Soft travelling-wave alpha factor in ``[1-amplitude, 1]``.
+def _wave_factor(
+    position: float,
+    phase: float,
+    waves: float,
+    amplitude: float,
+    comet: float = 0.0,
+) -> float:
+    """Travelling-wave alpha factor in ``[1-amplitude, 1+comet/2]``.
 
-    ``phase`` is in turns (0..1); the wave is 2*pi periodic in it.
+    ``phase`` is in turns (0..1); the wave is 2*pi periodic in it. With
+    ``comet > 0`` the crests sharpen into energy pulses (cubic term): peaks
+    get brighter and narrower while troughs dim, for a more "energy flow"
+    look than a pure sine.
     """
-    if amplitude <= 0.0:
+    if amplitude <= 0.0 and comet <= 0.0:
         return 1.0
     wave = math.sin(2.0 * math.pi * (waves * position - phase))
-    return 1.0 - amplitude * 0.5 * (1.0 - wave)
+    factor = 1.0 - amplitude * 0.5 * (1.0 - wave)
+    if comet > 0.0:
+        factor += comet * 0.5 * wave * wave * wave
+    return factor
+
+
+def _pulse_factor(phase: float, pulse: float) -> float:
+    """Global breathing factor in ``[1-pulse, 1]``; 1.0 when pulse is 0."""
+    if pulse <= 0.0:
+        return 1.0
+    return 1.0 - pulse * 0.5 * (1.0 - math.sin(2.0 * math.pi * phase))
 
 
 def _edge_mask(
@@ -211,6 +239,8 @@ def _edge_mask(
     waves: float,
     amplitude: float,
     direction: int,
+    comet: float = 0.0,
+    pulse: float = 0.0,
 ) -> Image.Image:
     """Build a (length x band) alpha mask with a wave along the edge.
 
@@ -218,14 +248,17 @@ def _edge_mask(
     around the screen: 0 = top L->R, 1 = bottom R->L, 2 = left B->T,
     3 = right T->B. The per-column factor is built with ``putdata`` and the
     band profile with a vectorized multiply, so a 24 fps animation stays
-    cheap (no per-pixel Python loop over the band).
+    cheap (no per-pixel Python loop over the band). ``comet`` sharpens the
+    wave crests into energy pulses and ``pulse`` breathes the whole edge.
     """
+    breath = _pulse_factor(phase, pulse)
     factors = [0] * length
     for x in range(length):
         position = x / max(1, length - 1)
         if direction in (1, 2):
             position = 1.0 - position
-        factors[x] = int(255 * _wave_factor(position, phase, waves, amplitude))
+        factor = _wave_factor(position, phase, waves, amplitude, comet)
+        factors[x] = int(255 * min(1.0, max(0.0, factor * breath)))
     factor_img = Image.new("L", (length, 1))
     factor_img.putdata(factors)
     if direction in (2, 3):
@@ -265,6 +298,8 @@ def render_edge(
     phase: float = 0.0,
     waves: float = 2.5,
     amplitude: float = 0.0,
+    comet: float = 0.0,
+    pulse: float = 0.0,
 ) -> Image.Image:
     """Render one screen-edge RGBA strip.
 
@@ -272,7 +307,8 @@ def render_edge(
     ``length`` is the strip extent along the edge. Horizontal strips keep
     the left->right color blend; vertical strips use the single edge color.
     The strip is band-thick, so a 24fps animation costs a small fraction of
-    a full-screen frame. ``amplitude=0`` keeps the frame static.
+    a full-screen frame. ``amplitude=0`` keeps the frame static; ``comet``
+    and ``pulse`` add the energy-pulse and breathing effects.
     """
     if length <= 0 or band <= 0:
         return Image.new("RGBA", (1, 1), (0, 0, 0, 0))
@@ -288,7 +324,7 @@ def render_edge(
             t = (i - inner) / max(1, band - inner)
             alpha.putpixel((0, i), int(255 * (1.0 - t) ** 2))
     direction = {"top": 0, "bottom": 1, "left": 2, "right": 3}[orientation]
-    mask = _edge_mask(alpha, length, band, phase, waves, amplitude, direction)
+    mask = _edge_mask(alpha, length, band, phase, waves, amplitude, direction, comet, pulse)
 
     if horizontal:
         edge = Image.new("RGB", (2, 1))
@@ -375,6 +411,8 @@ class WinGlowOverlay:
         cycle_seconds: float = 2.0,
         waves: float = 2.5,
         amplitude: float = 0.3,
+        comet: float = 0.55,
+        pulse: float = 0.25,
     ) -> None:
         self._band = band
         self._inner = inner
@@ -385,6 +423,8 @@ class WinGlowOverlay:
         self._cycle_seconds = cycle_seconds
         self._waves = waves
         self._amplitude = amplitude
+        self._comet = comet
+        self._pulse = pulse
         self._hwnds: list[int] = []
         self._strips: list[tuple[int, int, int, int]] = []
         self._thread: threading.Thread | None = None
@@ -553,6 +593,8 @@ class WinGlowOverlay:
                 phase=phase,
                 waves=self._waves,
                 amplitude=self._amplitude,
+                comet=self._comet,
+                pulse=self._pulse,
             )
             width, height = glow.size
             self._apply_update(
