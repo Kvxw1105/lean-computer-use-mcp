@@ -78,6 +78,8 @@ def test_cmd_record_prints_summary_and_next(monkeypatch, tmp_path, capsys):
     args = SimpleNamespace(
         fake=True,
         app="ChatGPT",
+        standby=False,
+        hotkey="ctrl+shift+space",
         out=out_path,
         seconds=0.0,
         snapshot_interval=60.0,

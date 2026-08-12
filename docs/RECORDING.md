@@ -40,6 +40,28 @@ lean-computer-use replay --in recordings/font-size.json --run
 # --yes pre-confirms all content-level steps; window focus never prompts
 ```
 
+### Standby mode (global hotkey, no `--app` needed)
+
+```sh
+# Wait for Ctrl+Shift+Space, record the foreground window, then wait again
+lean-computer-use record --standby
+# Pick a different hotkey (e.g. when Ctrl+Shift+Space is already taken)
+lean-computer-use record --standby --hotkey ctrl+alt+space
+```
+
+- The hotkey is registered system-wide (`RegisterHotKey`), so it fires while
+  any app has focus. Press it to record the current foreground window;
+  `Ctrl+Shift+R` stops and saves, then standby resumes.
+- The combination is user-configurable (`--hotkey ctrl+shift+space` is the
+  default; modifiers `ctrl`/`shift`/`alt`/`win`, keys: letters, digits,
+  `f1`-`f24`, `space`, `enter`, `tab`, `esc`, arrows, ...). At least one
+  modifier is required.
+- **Conflicts**: when the combination is already registered by another
+  program, `RegisterHotKey` fails and standby prints the conflict with a
+  working alternative - it never silently steals the key.
+- `Ctrl+C` quits standby. `--fake` runs one dry pass and exits (used by
+  tests); Windows-only for real recording.
+
 ## How the recorder works
 
 - A low-level `WH_MOUSE_LL` / `WH_KEYBOARD_LL` hook captures mouse clicks,

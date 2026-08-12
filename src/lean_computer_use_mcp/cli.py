@@ -99,7 +99,20 @@ def main(argv: list[str] | None = None) -> int:
         "record", help="Record a workflow demonstration into a replayable skill"
     )
     record.add_argument(
-        "--app", required=True, help="App name (process name or window title)"
+        "--app",
+        default=None,
+        help="App name (process name or window title); required unless --standby",
+    )
+    record.add_argument(
+        "--standby",
+        action="store_true",
+        help="Standby mode: a global hotkey starts recording the foreground "
+        "window (no --app needed); Ctrl+C quits",
+    )
+    record.add_argument(
+        "--hotkey",
+        default="ctrl+shift+space",
+        help="Global hotkey for --standby, e.g. ctrl+shift+space (default)",
     )
     record.add_argument(
         "--out",
@@ -499,10 +512,18 @@ def _print_recording_summary(recording) -> None:
         )
 
 
-def _cmd_record(args: argparse.Namespace) -> int:
-    settings = _settings_from_args(args)
-    upstream = build_upstream(settings, args.fake)
-    out_path = args.out or f"recordings/{args.app}-{int(time.time())}.json"
+def _run_recorder_session(
+    args: argparse.Namespace,
+    settings: Settings,
+    upstream,
+    app: str,
+    out_path: str,
+) -> Recording:
+    """One recording session: hooks, wait for stop, save, print summary.
+
+    Shared by ``record`` and ``record --standby``; ``out_path`` is the
+    recording JSON path already chosen by the caller.
+    """
     hook = None
     foreground = None
     if args.fake:
@@ -515,7 +536,7 @@ def _cmd_record(args: argparse.Namespace) -> int:
         foreground = WinForeground()
     recorder = Recorder(
         upstream=upstream,
-        app=args.app,
+        app=app,
         snapshot_interval=args.snapshot_interval,
         hook=hook,
         foreground=foreground,
@@ -531,7 +552,7 @@ def _cmd_record(args: argparse.Namespace) -> int:
         overlay.show()
     except Exception as exc:  # noqa: BLE001 - indicator must never block recording
         print(f"Warning: recording glow unavailable ({exc}); continuing without it.")
-    print(f"Recording {args.app!r}. Demonstrate the workflow now.")
+    print(f"Recording {app!r}. Demonstrate the workflow now.")
     print(f"Stop with Ctrl+Shift+R or wait {args.seconds or 'indefinitely'} seconds.")
     try:
         if args.seconds > 0:
@@ -551,8 +572,100 @@ def _cmd_record(args: argparse.Namespace) -> int:
         f"Recorded {len(recording.steps)} steps ({recording.metrics.duration_ms} ms) -> {out_path}"
     )
     _print_recording_summary(recording)
+    return recording
+
+
+def _cmd_record(args: argparse.Namespace) -> int:
+    settings = _settings_from_args(args)
+    upstream = build_upstream(settings, args.fake)
+    if args.standby:
+        return _cmd_record_standby(args, settings, upstream)
+    if not args.app:
+        print(
+            "Error: --app is required (or use --standby to record the "
+            "foreground window via a hotkey)",
+            file=sys.stderr,
+        )
+        return 2
+    out_path = args.out or f"recordings/{args.app}-{int(time.time())}.json"
+    _run_recorder_session(args, settings, upstream, args.app, out_path)
     print(f"Next: lean-computer-use compile --in {out_path}")
     return 0
+
+
+def _cmd_record_standby(
+    args: argparse.Namespace, settings: Settings, upstream
+) -> int:
+    """Wait for a global hotkey and record the foreground window each time.
+
+    The hotkey combination is user-configurable (``--hotkey``); when it is
+    already taken by another program, ``RegisterHotKey`` fails and the CLI
+    reports the conflict with a working alternative instead of stealing the
+    key.
+    """
+    from lean_computer_use_mcp.record.standby import (
+        HotkeyListener,
+        describe_hotkey,
+        parse_hotkey,
+    )
+
+    try:
+        modifiers, vk = parse_hotkey(args.hotkey)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+    spec = describe_hotkey(modifiers, vk)
+    if not args.fake:
+        listener = HotkeyListener(vk, modifiers)
+        if not listener.register():
+            print(
+                f"[standby] hotkey {spec} is already registered by another "
+                "program.",
+                file=sys.stderr,
+            )
+            print(
+                "[standby] pick another one, e.g. "
+                "--hotkey ctrl+alt+space or --hotkey ctrl+shift+f9",
+                file=sys.stderr,
+            )
+            return 2
+    else:
+        listener = None
+    try:
+        print(f"[standby] waiting for {spec} to record the foreground window "
+              f"(Ctrl+C quits)")
+        while True:
+            if listener is not None and not listener.wait():
+                return 0
+            if args.fake:
+                from lean_computer_use_mcp.record.recorder import NoopForeground
+
+                foreground = NoopForeground()
+            else:
+                from lean_computer_use_mcp.record.win_hooks import WinForeground
+
+                foreground = WinForeground()
+            info = foreground.current()
+            if info is None or not getattr(info, "window_title", ""):
+                print("[standby] no recordable foreground window; skipping")
+                if listener is None:
+                    return 0
+                continue
+            app = info.window_title
+            out_path = args.out or f"recordings/{app}-{int(time.time())}.json"
+            print(f"[standby] recording {app!r} (pid {info.window_pid}) - "
+                  f"Ctrl+Shift+R stops")
+            _run_recorder_session(args, settings, upstream, app, out_path)
+            print(f"[standby] recorded -> {out_path}")
+            if listener is None:
+                return 0
+            print(f"[standby] waiting for {spec} again")
+    except KeyboardInterrupt:
+        print("\n[standby] stopped")
+        return 0
+    finally:
+        if listener is not None:
+            listener.stop()
 
 
 def _cmd_compile(args: argparse.Namespace) -> int:
